@@ -1,0 +1,332 @@
+import { useState } from 'react';
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Boxes,
+  Check,
+  ChevronDown,
+  Clock3,
+  Globe2,
+  MapPin,
+  Menu,
+  MessageCircle,
+  PackageCheck,
+  Phone,
+  ShieldCheck,
+  Ship,
+  Truck,
+  Warehouse,
+  X,
+} from 'lucide-react';
+
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || '260000000000';
+const BUSINESS_PHONE = import.meta.env.VITE_BUSINESS_PHONE || '+260 XXX XXX XXX';
+const BUSINESS_EMAIL = import.meta.env.VITE_BUSINESS_EMAIL || 'info@bridgewaylogistics.example';
+const BUSINESS_ADDRESS = import.meta.env.VITE_BUSINESS_ADDRESS || 'Lusaka, Zambia';
+
+const services = [
+  {
+    number: '01',
+    title: 'Freight forwarding',
+    description: 'Practical freight coordination and shipment support, helping your goods move through the right channels.',
+    icon: Ship,
+  },
+  {
+    number: '02',
+    title: 'Cargo transportation',
+    description: 'Dependable road cargo movement for businesses, suppliers and individuals across Lusaka Province.',
+    icon: Truck,
+  },
+  {
+    number: '03',
+    title: 'Courier services',
+    description: 'Convenient collection and delivery solutions for parcels, documents and smaller consignments.',
+    icon: PackageCheck,
+  },
+  {
+    number: '04',
+    title: 'Warehousing & storage',
+    description: 'Storage and handling support to help keep goods organised between collection and delivery.',
+    icon: Warehouse,
+  },
+  {
+    number: '05',
+    title: 'Customs clearing support',
+    description: 'Assistance coordinating customs-related processes and documentation for eligible shipments.',
+    icon: ShieldCheck,
+  },
+  {
+    number: '06',
+    title: 'Logistics management',
+    description: 'A coordinated approach to transport, storage and delivery requirements from one point of contact.',
+    icon: Boxes,
+  },
+];
+
+const initialForm = {
+  fullName: '',
+  email: '',
+  phone: '',
+  service: '',
+  pickupLocation: '',
+  deliveryLocation: '',
+  cargoDescription: '',
+  quantity: '',
+  preferredDate: '',
+  message: '',
+};
+
+function Brand({ light = false }) {
+  return (
+    <a className={`brand ${light ? 'brand-light' : ''}`} href="#home" aria-label="Bridgeway Logistics home">
+      <span className="brand-mark"><span /><span /><span /></span>
+      <span className="brand-copy">
+        <strong>BRIDGEWAY</strong>
+        <small>LOGISTICS</small>
+      </span>
+    </a>
+  );
+}
+
+function App() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [form, setForm] = useState(initialForm);
+  const [formState, setFormState] = useState({ status: 'idle', message: '' });
+
+  const whatsappMessage = encodeURIComponent(
+    'Hello Bridgeway Logistics, I would like to enquire about your logistics services. Please assist me.',
+  );
+  const whatsappHref = `https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${whatsappMessage}`;
+
+  const closeMenu = () => setMenuOpen(false);
+  const updateField = (event) => {
+    const { name, value } = event.target;
+    setForm((current) => ({ ...current, [name]: value }));
+  };
+
+  async function submitQuote(event) {
+    event.preventDefault();
+    setFormState({ status: 'submitting', message: '' });
+
+    try {
+      const response = await fetch(`${API_BASE}/quotes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || 'We could not submit your request. Please try again.');
+      }
+      setForm(initialForm);
+      setFormState({
+        status: 'success',
+        message: `Thank you. Your enquiry has been received${data.reference ? ` (Reference: ${data.reference})` : ''}. Our team will get back to you.`,
+      });
+    } catch (error) {
+      setFormState({
+        status: 'error',
+        message: error.message || 'Something went wrong. Please try again or contact us on WhatsApp.',
+      });
+    }
+  }
+
+  return (
+    <div className="site-shell">
+      <div className="top-strip">
+        <div className="container top-strip-inner">
+          <span><MapPin size={14} /> Serving Lusaka Province, Zambia</span>
+          <div className="top-strip-right">
+            <span><Clock3 size={14} /> Business hours: <b>To be confirmed</b></span>
+            <a href={`tel:${BUSINESS_PHONE.replace(/[^+\d]/g, '')}`}><Phone size={14} /> {BUSINESS_PHONE}</a>
+          </div>
+        </div>
+      </div>
+
+      <header className="main-header">
+        <div className="container nav-container">
+          <Brand />
+          <button className="mobile-menu-toggle" onClick={() => setMenuOpen((value) => !value)} aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen}>
+            {menuOpen ? <X size={23} /> : <Menu size={23} />}
+          </button>
+          <nav className={`main-nav ${menuOpen ? 'nav-open' : ''}`} aria-label="Main navigation">
+            <a href="#home" onClick={closeMenu}>Home</a>
+            <a href="#about" onClick={closeMenu}>About us</a>
+            <a href="#services" onClick={closeMenu}>Services</a>
+            <a href="#coverage" onClick={closeMenu}>Our coverage</a>
+            <a href="#contact" onClick={closeMenu}>Contact</a>
+            <a className="nav-quote" href="#quote" onClick={closeMenu}>Request a quote <ArrowUpRight size={16} /></a>
+          </nav>
+        </div>
+      </header>
+
+      <main>
+        <section className="hero" id="home">
+          <div className="hero-image" />
+          <div className="hero-shade" />
+          <div className="container hero-content">
+            <div className="hero-copy">
+              <div className="eyebrow eyebrow-light"><span className="eyebrow-line" /> YOUR LOGISTICS PARTNER IN ZAMBIA</div>
+              <h1>Moving business <em>forward.</em></h1>
+              <p className="hero-description">From freight coordination to the final delivery, we help keep your goods moving with practical logistics solutions built around your business.</p>
+              <div className="hero-actions">
+                <a className="button button-orange" href="#quote">Request a quote <ArrowUpRight size={17} /></a>
+                <a className="button button-outline-light" href="#services">Explore our services <ArrowDownRight size={17} /></a>
+              </div>
+              <div className="hero-note"><span className="hero-note-dot" /> Proudly focused on Lusaka Province</div>
+            </div>
+            <div className="hero-side-card">
+              <span className="hero-side-icon"><Truck size={22} /></span>
+              <span className="hero-side-label">LOCAL KNOWLEDGE</span>
+              <strong>Logistics that keeps you moving.</strong>
+              <a href="#about">Get to know us <ArrowUpRight size={15} /></a>
+            </div>
+          </div>
+          <div className="hero-bottom container">
+            <span>FREIGHT <i /> TRANSPORT <i /> STORAGE <i /> DELIVERY</span>
+            <a href="#about">SCROLL TO DISCOVER <ChevronDown size={15} /></a>
+          </div>
+        </section>
+
+        <section className="intro-band">
+          <div className="container intro-grid">
+            <div className="intro-heading">A better way to move<br /><span>what matters.</span></div>
+            <p>Every delivery is part of a bigger picture. Bridgeway Logistics brings key logistics services together to help businesses and individuals move cargo, manage goods and coordinate deliveries around Lusaka Province.</p>
+            <a className="text-link" href="#services">Discover what we do <ArrowUpRight size={17} /></a>
+          </div>
+        </section>
+
+        <section className="section about-section" id="about">
+          <div className="container about-grid">
+            <div className="about-visual-wrap">
+              <div className="about-photo" role="img" aria-label="Logistics truck transporting cargo on a highway" />
+              <div className="about-stamp"><Globe2 size={24} /><span>ROOTED IN<br /><b>ZAMBIA</b></span></div>
+              <div className="about-caption"><span>01 / 03</span><span>BUILT AROUND YOUR LOGISTICS NEEDS</span></div>
+            </div>
+            <div className="about-copy">
+              <div className="eyebrow"><span className="eyebrow-line" /> ABOUT BRIDGEWAY</div>
+              <h2>Connecting every<br />part of the <em>journey.</em></h2>
+              <p className="lead">We believe logistics should make business easier, not more complicated.</p>
+              <p>Bridgeway Logistics is a Zambia-focused logistics services business operating primarily in Lusaka Province. We bring together transport, freight, courier, storage and logistics coordination services to support the movement of goods.</p>
+              <p>Whether you are moving a consignment, sending a parcel or organising storage, our aim is to provide a responsive point of contact and a solution shaped around your requirements.</p>
+              <a className="button button-dark" href="#contact">Talk to our team <ArrowUpRight size={17} /></a>
+            </div>
+          </div>
+        </section>
+
+        <section className="services-section section" id="services">
+          <div className="container">
+            <div className="section-heading-row">
+              <div>
+                <div className="eyebrow eyebrow-light"><span className="eyebrow-line" /> WHAT WE DO</div>
+                <h2>Logistics solutions.<br /><em>One connection.</em></h2>
+              </div>
+              <p>Flexible services for the movement, handling and coordination of goods. Tell us what you need and we will help you identify the right next step.</p>
+            </div>
+            <div className="services-grid">
+              {services.map(({ number, title, description, icon: Icon }) => (
+                <article className="service-card" key={number}>
+                  <div className="service-card-top"><span>{number} / 06</span><Icon size={25} strokeWidth={1.7} /></div>
+                  <h3>{title}</h3>
+                  <p>{description}</p>
+                  <a href="#quote" aria-label={`Request a quote for ${title}`}>Enquire about this service <ArrowUpRight size={15} /></a>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="coverage-section section" id="coverage">
+          <div className="container coverage-grid">
+            <div className="coverage-copy">
+              <div className="eyebrow"><span className="eyebrow-line" /> WHERE WE OPERATE</div>
+              <h2>Local focus.<br /><em>Connected service.</em></h2>
+              <p>Our current operating focus is Lusaka Province, Zambia. Share your collection and delivery locations with us so we can confirm availability and the best way to support your shipment.</p>
+              <div className="coverage-location"><span className="location-pin"><MapPin size={19} /></span><span><b>Lusaka Province</b><small>Zambia</small></span></div>
+              <a className="text-link" href="#quote">Check service availability <ArrowUpRight size={17} /></a>
+            </div>
+            <div className="coverage-art">
+              <div className="coverage-map-card">
+                <div className="map-grid-lines" />
+                <div className="map-route route-one" />
+                <div className="map-route route-two" />
+                <div className="map-pin pin-main"><span /><b>LUSAKA</b></div>
+                <div className="map-pin pin-small pin-a"><span /></div>
+                <div className="map-pin pin-small pin-b"><span /></div>
+                <div className="map-pin pin-small pin-c"><span /></div>
+                <div className="map-label label-one">LUSAKA PROVINCE</div>
+                <div className="map-label label-two">ZAMBIA</div>
+                <div className="map-legend"><i /> PRIMARY SERVICE AREA</div>
+              </div>
+              <div className="coverage-art-caption">SERVICE AREA INDICATIVE — CONFIRM EACH ROUTE WITH OUR TEAM</div>
+            </div>
+          </div>
+        </section>
+
+        <section className="quote-section section" id="quote">
+          <div className="container quote-grid">
+            <div className="quote-copy">
+              <div className="eyebrow eyebrow-light"><span className="eyebrow-line" /> LET'S GET MOVING</div>
+              <h2>Tell us what<br />you need to <em>move.</em></h2>
+              <p>Send us a few details about your shipment or logistics requirement. Our team can review your request and get in touch to discuss the next steps.</p>
+              <div className="quote-contact-list">
+                <a href={whatsappHref} target="_blank" rel="noreferrer"><span><MessageCircle size={19} /></span><span><small>WHATSAPP</small><b>{BUSINESS_PHONE}</b></span><ArrowUpRight size={16} /></a>
+                <a href={`tel:${BUSINESS_PHONE.replace(/[^+\d]/g, '')}`}><span><Phone size={18} /></span><span><small>CALL OUR TEAM</small><b>{BUSINESS_PHONE}</b></span><ArrowUpRight size={16} /></a>
+                <a href={`mailto:${BUSINESS_EMAIL}`}><span><MessageCircle size={18} /></span><span><small>EMAIL</small><b>{BUSINESS_EMAIL}</b></span><ArrowUpRight size={16} /></a>
+              </div>
+            </div>
+            <form className="quote-form" onSubmit={submitQuote}>
+              <div className="form-heading"><div><span>01 — REQUEST DETAILS</span><h3>Request a quote</h3></div><span className="form-required">* Required fields</span></div>
+              {formState.status === 'success' && <div className="form-alert success"><Check size={18} />{formState.message}</div>}
+              {formState.status === 'error' && <div className="form-alert error">{formState.message}</div>}
+              <div className="form-row">
+                <label>Full name *<input name="fullName" value={form.fullName} onChange={updateField} placeholder="Your full name" autoComplete="name" required maxLength="100" /></label>
+                <label>Phone number *<input name="phone" value={form.phone} onChange={updateField} placeholder="e.g. +260 97..." autoComplete="tel" required maxLength="30" /></label>
+              </div>
+              <div className="form-row">
+                <label>Email address<input type="email" name="email" value={form.email} onChange={updateField} placeholder="you@example.com" autoComplete="email" maxLength="150" /></label>
+                <label>Service required *<select name="service" value={form.service} onChange={updateField} required><option value="">Select a service</option>{services.map((service) => <option value={service.title} key={service.number}>{service.title}</option>)}<option value="Other logistics enquiry">Other logistics enquiry</option></select></label>
+              </div>
+              <div className="form-row">
+                <label>Collection / pickup location *<input name="pickupLocation" value={form.pickupLocation} onChange={updateField} placeholder="Where should we collect?" required maxLength="160" /></label>
+                <label>Delivery location *<input name="deliveryLocation" value={form.deliveryLocation} onChange={updateField} placeholder="Where should it go?" required maxLength="160" /></label>
+              </div>
+              <div className="form-row">
+                <label>Cargo / parcel description *<input name="cargoDescription" value={form.cargoDescription} onChange={updateField} placeholder="What are you sending?" required maxLength="250" /></label>
+                <label>Quantity / size<input name="quantity" value={form.quantity} onChange={updateField} placeholder="e.g. 4 boxes, 2 tonnes" maxLength="100" /></label>
+              </div>
+              <div className="form-row form-row-single">
+                <label>Preferred date<input type="date" name="preferredDate" value={form.preferredDate} onChange={updateField} min={new Date().toISOString().split('T')[0]} /></label>
+              </div>
+              <label>Additional information<textarea name="message" value={form.message} onChange={updateField} placeholder="Tell us anything else we should know..." rows="3" maxLength="1500" /></label>
+              <div className="form-submit-row"><p>By submitting, you agree that Bridgeway Logistics may contact you about this enquiry.</p><button className="button button-orange" type="submit" disabled={formState.status === 'submitting'}>{formState.status === 'submitting' ? 'Sending...' : 'Send request'} <ArrowUpRight size={17} /></button></div>
+              <div className="form-footnote"><ShieldCheck size={15} /> Your enquiry is submitted securely for the team to review.</div>
+            </form>
+          </div>
+        </section>
+
+        <section className="contact-band" id="contact">
+          <div className="container contact-band-inner">
+            <div><span className="eyebrow eyebrow-light"><span className="eyebrow-line" /> START A CONVERSATION</span><h2>Need to move something?</h2><p>Let's talk about how we can help.</p></div>
+            <div className="contact-band-actions"><a className="button button-orange" href={whatsappHref} target="_blank" rel="noreferrer"><MessageCircle size={17} /> Chat on WhatsApp</a><a className="button button-outline-light" href={`mailto:${BUSINESS_EMAIL}`}>Send us an email <ArrowUpRight size={16} /></a></div>
+          </div>
+        </section>
+      </main>
+
+      <footer className="footer">
+        <div className="container footer-main">
+          <div className="footer-brand-col"><Brand light /><p>Moving goods. Connecting businesses. Supporting logistics needs across Lusaka Province, Zambia.</p><a className="footer-whatsapp" href={whatsappHref} target="_blank" rel="noreferrer"><MessageCircle size={16} /> Connect on WhatsApp <ArrowUpRight size={14} /></a></div>
+          <div className="footer-links"><h4>EXPLORE</h4><a href="#about">About us</a><a href="#services">Our services</a><a href="#coverage">Service coverage</a><a href="#quote">Request a quote</a></div>
+          <div className="footer-links"><h4>OUR SERVICES</h4>{services.slice(0, 4).map((service) => <a href="#services" key={service.number}>{service.title}</a>)}</div>
+          <div className="footer-links footer-contact"><h4>CONTACT</h4><span><MapPin size={15} /> {BUSINESS_ADDRESS}</span><a href={`tel:${BUSINESS_PHONE.replace(/[^+\d]/g, '')}`}><Phone size={15} /> {BUSINESS_PHONE}</a><a href={`mailto:${BUSINESS_EMAIL}`}>{BUSINESS_EMAIL}</a><small>Business hours: To be confirmed</small></div>
+        </div>
+        <div className="container footer-bottom"><span>© {new Date().getFullYear()} Bridgeway Logistics. All rights reserved.</span><span>Website content and contact details subject to confirmation.</span><a href="#home">BACK TO TOP ↑</a></div>
+      </footer>
+
+      <a className="floating-whatsapp" href={whatsappHref} target="_blank" rel="noreferrer" aria-label="Chat with Bridgeway Logistics on WhatsApp"><MessageCircle size={24} /><span>Chat with us</span></a>
+    </div>
+  );
+}
+
+export default App;
