@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import AdminDashboard from './Admin.jsx';
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -89,7 +90,7 @@ function Brand({ light = false }) {
   );
 }
 
-function App() {
+function PublicSite() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [form, setForm] = useState(initialForm);
   const [formState, setFormState] = useState({ status: 'idle', message: '' });
@@ -327,6 +328,10 @@ function App() {
       <a className="floating-whatsapp" href={whatsappHref} target="_blank" rel="noreferrer" aria-label="Chat with Bridgeway Logistics on WhatsApp"><MessageCircle size={24} /><span>Chat with us</span></a>
     </div>
   );
+}
+
+function App() {
+  return window.location.hash.startsWith('#/admin') ? <AdminDashboard /> : <PublicSite />;
 }
 
 export default App;
