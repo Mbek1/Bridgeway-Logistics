@@ -44,6 +44,7 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
+app.use('/api/admin/login', rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: 'draft-7', legacyHeaders: false, message: { message: 'Too many sign-in attempts. Please try again later.' } }));
 app.use('/api/admin', adminRoutes);
 app.use('/api/quotes', quoteLimiter, quoteRoutes);
 
