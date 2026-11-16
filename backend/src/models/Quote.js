@@ -13,6 +13,7 @@ const quoteSchema = new mongoose.Schema(
     quantity: { type: String, trim: true, maxlength: 100, default: '' },
     preferredDate: { type: String, trim: true, default: '' },
     message: { type: String, trim: true, maxlength: 1500, default: '' },
+    internalNotes: { type: String, trim: true, maxlength: 3000, default: '' },
     status: {
       type: String,
       enum: ['new', 'contacted', 'quoted', 'closed'],
