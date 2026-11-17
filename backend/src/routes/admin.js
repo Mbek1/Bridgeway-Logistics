@@ -19,7 +19,7 @@ function makeToken(payload) {
 }
 async function requireAuth(req, res, next) {
   try {
-    const token = (req.get('authorization') || '').replace(/^Bearer\\s+/, '');
+    const token = (req.get('authorization') || '').replace(/^Bearer\s+/, '');
     const parts = token.split('.');
     if (!process.env.JWT_SECRET || parts.length !== 3) return res.status(401).json({ message: 'Please sign in to access the dashboard.' });
     const input = parts[0] + '.' + parts[1];
@@ -89,7 +89,7 @@ router.post('/employees', requireAuth, requireRoles('admin'), async (req, res, n
     const password = typeof req.body?.password === 'string' ? req.body.password : '';
     const role = String(req.body?.role || 'viewer');
     if (!fullName || fullName.length > 100) return res.status(400).json({ message: 'Enter an employee name (up to 100 characters).' });
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || email.length > 150) return res.status(400).json({ message: 'Enter a valid employee email address.' });
+    if (!/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(email) || email.length > 150) return res.status(400).json({ message: 'Enter a valid employee email address.' });
     if (password.length < 10 || password.length > 128) return res.status(400).json({ message: 'Employee passwords must be at least 10 characters long.' });
     if (!EMPLOYEE_ROLES.includes(role)) return res.status(400).json({ message: 'Choose a valid employee role.' });
     const employee = await Employee.create({ fullName, email, passwordHash: passwordHash(password), role, phone: String(req.body?.phone || '').trim().slice(0, 30), jobTitle: String(req.body?.jobTitle || '').trim().slice(0, 100), department: String(req.body?.department || '').trim().slice(0, 100), createdBy: req.admin.email });
@@ -107,7 +107,7 @@ router.patch('/employees/:id', requireAuth, requireRoles('admin'), async (req, r
     if (!employee) return res.status(404).json({ message: 'Employee not found.' });
     const { fullName, email, phone, jobTitle, department, role, active, password } = req.body || {};
     if (fullName !== undefined) { if (typeof fullName !== 'string' || !fullName.trim() || fullName.trim().length > 100) return res.status(400).json({ message: 'Enter a valid employee name.' }); employee.fullName = fullName.trim(); }
-    if (email !== undefined) { const value = String(email).trim().toLowerCase(); if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value) || value.length > 150) return res.status(400).json({ message: 'Enter a valid employee email address.' }); employee.email = value; }
+    if (email !== undefined) { const value = String(email).trim().toLowerCase(); if (!/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(value) || value.length > 150) return res.status(400).json({ message: 'Enter a valid employee email address.' }); employee.email = value; }
     if (phone !== undefined) employee.phone = String(phone).trim().slice(0, 30);
     if (jobTitle !== undefined) employee.jobTitle = String(jobTitle).trim().slice(0, 100);
     if (department !== undefined) employee.department = String(department).trim().slice(0, 100);
@@ -140,7 +140,7 @@ router.get('/stats', requireAuth, async (_req, res, next) => {
   } catch (error) { return next(error); }
 });
 
-router.get('/quotes', requireAdmin, async (req, res, next) => {
+router.get('/quotes', requireAuth, async (req, res, next) => {
   try {
     const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 100, 1), 200);
     const filter = {};
@@ -160,7 +160,7 @@ router.get('/quotes', requireAdmin, async (req, res, next) => {
   } catch (error) { return next(error); }
 });
 
-router.patch('/quotes/:id', requireAdmin, async (req, res, next) => {
+router.patch('/quotes/:id', requireAuth, requireRoles('admin', 'manager', 'operations'), async (req, res, next) => {
   try {
     const quote = await Quote.findById(req.params.id).select('+quotation.publicToken');
     if (!quote) return res.status(404).json({ message: 'Quote request not found.' });
@@ -203,7 +203,7 @@ async function sendQuotationEmail(quote) {
   return { status: 'sent', error: '', messageId: result.id || '' };
 }
 
-router.patch('/quotes/:id/quotation', requireAdmin, async (req, res, next) => {
+router.patch('/quotes/:id/quotation', requireAuth, requireRoles('admin', 'manager', 'sales'), async (req, res, next) => {
   try {
     const input = req.body?.quotation;
     if (!input || typeof input !== 'object') return res.status(400).json({ message: 'Quotation details are required.' });
