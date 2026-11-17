@@ -80,7 +80,7 @@ router.get('/quotes', requireAdmin, async (req, res, next) => {
         .map((field) => ({ [field]: { $regex: safe, $options: 'i' } }));
     }
     const [quotes, total] = await Promise.all([
-      Quote.find(filter).sort({ createdAt: -1 }).limit(limit).select('-__v').lean(),
+      Quote.find(filter).sort({ createdAt: -1 }).limit(limit).select('-__v +quotation.publicToken').lean(),
       Quote.countDocuments(filter),
     ]);
     return res.json({ total, count: quotes.length, quotes });
