@@ -7,6 +7,12 @@ const dateText = (value) => value ? new Date(value).toLocaleString() : '—';
 
 export default function AdminDashboard() {
   const [token, setToken] = useState(() => sessionStorage.getItem('bridgeway_admin_token') || '');
+  const [role, setRole] = useState(() => sessionStorage.getItem('bridgeway_admin_role') || 'admin');
+  const [displayName, setDisplayName] = useState(() => sessionStorage.getItem('bridgeway_admin_name') || 'Administrator');
+  const [employees, setEmployees] = useState([]);
+  const [employeeForm, setEmployeeForm] = useState({ fullName: '', email: '', phone: '', jobTitle: '', department: '', role: 'viewer', password: '' });
+  const [editingEmployeeId, setEditingEmployeeId] = useState('');
+  const [employeeBusy, setEmployeeBusy] = useState(false);
   const [email, setEmail] = useState('kezlarmudenda90@gmail.com');
   const [password, setPassword] = useState('');
   const [quotes, setQuotes] = useState([]);
@@ -39,6 +45,38 @@ export default function AdminDashboard() {
     return data;
   }
 
+  async function loadEmployees() {
+    try { const data = await request('/admin/employees'); setEmployees(data.employees || []); }
+    catch (e) { setError(e.message); }
+  }
+
+  async function saveEmployee(event) {
+    event.preventDefault(); setEmployeeBusy(true); setError(''); setNotice('');
+    try {
+      const path = editingEmployeeId ? '/admin/employees/' + editingEmployeeId : '/admin/employees';
+      const data = await request(path, { method: editingEmployeeId ? 'PATCH' : 'POST', body: JSON.stringify(employeeForm) });
+      if (editingEmployeeId) setEmployees((items) => items.map((item) => item._id === editingEmployeeId ? data.employee : item));
+      else setEmployees((items) => [data.employee, ...items]);
+      setEmployeeForm({ fullName: '', email: '', phone: '', jobTitle: '', department: '', role: 'viewer', password: '' });
+      setEditingEmployeeId(''); setNotice(editingEmployeeId ? 'Employee account updated.' : 'Employee account created. Share the temporary login details securely with the employee.');
+    } catch (e) { setError(e.message); }
+    finally { setEmployeeBusy(false); }
+  }
+
+  function editEmployee(employee) {
+    setEditingEmployeeId(employee._id);
+    setEmployeeForm({ fullName: employee.fullName || '', email: employee.email || '', phone: employee.phone || '', jobTitle: employee.jobTitle || '', department: employee.department || '', role: employee.role || 'viewer', password: '' });
+    document.getElementById('employee-form')?.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  async function toggleEmployee(employee) {
+    try {
+      const data = await request('/admin/employees/' + employee._id, { method: 'PATCH', body: JSON.stringify({ active: !employee.active }) });
+      setEmployees((items) => items.map((item) => item._id === employee._id ? data.employee : item));
+      setNotice(data.employee.active ? 'Employee account activated.' : 'Employee account deactivated.');
+    } catch (e) { setError(e.message); }
+  }
+
   async function loadQuotes() {
     setBusy(true); setError(''); setNotice('');
     try {
@@ -53,7 +91,7 @@ export default function AdminDashboard() {
     finally { setBusy(false); }
   }
 
-  useEffect(() => { if (token) loadQuotes(); }, [token]);
+  useEffect(() => { if (token) { loadQuotes(); if (role === 'admin') loadEmployees(); } }, [token, role]);
   useEffect(() => {
     if (selected) {
       setNotes(selected.internalNotes || '');
@@ -80,6 +118,9 @@ export default function AdminDashboard() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.message || 'Unable to sign in.');
       sessionStorage.setItem('bridgeway_admin_token', data.token);
+      sessionStorage.setItem('bridgeway_admin_role', data.role || 'admin');
+      sessionStorage.setItem('bridgeway_admin_name', data.name || data.email);
+      setRole(data.role || 'admin'); setDisplayName(data.name || data.email);
       setToken(data.token); setPassword('');
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
@@ -124,7 +165,9 @@ export default function AdminDashboard() {
 
   function signOut() {
     sessionStorage.removeItem('bridgeway_admin_token');
-    setToken(''); setQuotes([]); setSelectedId('');
+    sessionStorage.removeItem('bridgeway_admin_role');
+    sessionStorage.removeItem('bridgeway_admin_name');
+    setToken(''); setQuotes([]); setSelectedId(''); setEmployees([]);
   }
 
   if (!token) return (
@@ -133,8 +176,8 @@ export default function AdminDashboard() {
         <a className="admin-back-link" href="/#home"><ArrowLeft size={16} /> Back to website</a>
         <div className="admin-brand-mark"><Truck size={25} /></div>
         <p className="admin-eyebrow">BRIDGEWAY LOGISTICS</p>
-        <h1>Admin sign in</h1>
-        <p className="admin-muted">Sign in to review and manage customer quote requests.</p>
+        <h1>Staff sign in</h1>
+        <p className="admin-muted">Sign in with your Bridgeway Logistics account to access your authorised workspace.</p>
         {error && <div className="admin-alert admin-alert-error">{error}</div>}
         <label>Email address<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required /></label>
         <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required /></label>
@@ -148,7 +191,7 @@ export default function AdminDashboard() {
     <main className="admin-page">
       <header className="admin-header"><div className="admin-header-inner">
         <a className="admin-wordmark" href="/#home"><Truck size={22} /> BRIDGEWAY <span>ADMIN</span></a>
-        <div className="admin-header-actions"><span>{email}</span><button onClick={loadQuotes} disabled={busy} aria-label="Refresh quotes"><RefreshCw size={16} /></button><button onClick={signOut}><LogOut size={16} /> Sign out</button></div>
+        <div className="admin-header-actions"><span>{displayName} · {role}</span><button onClick={loadQuotes} disabled={busy} aria-label="Refresh quotes"><RefreshCw size={16} /></button>{role === 'admin' && <button onClick={() => document.getElementById('admin-employees')?.scrollIntoView({ behavior: 'smooth' })}>Employees</button>}<button onClick={signOut}><LogOut size={16} /> Sign out</button></div>
       </div></header>
       <section className="admin-content">
         <div className="admin-title-row"><div><p className="admin-eyebrow">ENQUIRY MANAGEMENT</p><h1>Quote requests</h1><p className="admin-muted">Review incoming enquiries and manage customer follow-ups.</p></div><span className="admin-count">{quotes.length} shown</span></div>
@@ -206,7 +249,7 @@ export default function AdminDashboard() {
                   <label className="admin-quotation-full">Description / services included<textarea rows="4" maxLength="3000" value={quotation.description} onChange={(e) => setQuotation({ ...quotation, description: e.target.value })} placeholder="Describe the transport, handling, route, or other services covered by this price." required /></label>
                   <label className="admin-quotation-full">Terms and conditions<textarea rows="3" maxLength="3000" value={quotation.terms} onChange={(e) => setQuotation({ ...quotation, terms: e.target.value })} placeholder="Payment terms, exclusions, conditions, and other important notes." /></label>
                 </div>
-                <div className="admin-quotation-actions"><button className="admin-primary-button" onClick={saveQuotation} disabled={busy}>Save quotation</button>{selected.quotation?.reference && <button className="admin-secondary-button" type="button" onClick={() => window.print()}>Download / print PDF</button>}{selected.quotation?.publicToken && <button className="admin-secondary-button" type="button" onClick={copyQuotationLink}>Copy customer link</button>}</div>
+                <div className="admin-quotation-actions">{['admin', 'manager', 'sales'].includes(role) && <button className="admin-primary-button" onClick={saveQuotation} disabled={busy}>Save quotation</button>}{selected.quotation?.reference && <button className="admin-secondary-button" type="button" onClick={() => window.print()}>Download / print PDF</button>}{selected.quotation?.publicToken && <button className="admin-secondary-button" type="button" onClick={copyQuotationLink}>Copy customer link</button>}</div>
                 {selected.quotation?.reference && <div className="admin-quotation-print">
                   <div className="admin-print-top"><strong>BRIDGEWAY LOGISTICS</strong><span>QUOTATION</span></div>
                   <p><b>Quotation:</b> {selected.quotation.reference}</p>
@@ -236,14 +279,40 @@ export default function AdminDashboard() {
                   <div><b>{String(event.action || 'activity').replaceAll('_', ' ')}</b><small>{dateText(event.createdAt)} · {event.actor || 'Admin'}</small></div><p>{event.details}</p>
                 </article>)}
               </section>}
-              <div className="admin-edit-section">
+              {['admin', 'manager', 'operations'].includes(role) && <div className="admin-edit-section">
                 <label>Request status<select value={nextStatus} onChange={(e) => setNextStatus(e.target.value)}>{STATUSES.map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}</select></label>
                 <label>Internal notes<textarea rows="4" maxLength="3000" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes for the Bridgeway team. Customers cannot see these." /></label>
                 <button className="admin-primary-button" onClick={saveQuote} disabled={busy}>Save changes</button>
-              </div>
+              </div>}
             </> : <p className="admin-empty">Select a quote request to view its details.</p>}
           </section>
         </div>
+        {role === 'admin' && <section className="admin-employees-section" id="admin-employees">
+          <div className="admin-panel-heading"><div><p className="admin-eyebrow">STAFF ACCESS CONTROL</p><h2>Employee management</h2></div><span>{employees.length} account(s)</span></div>
+          <p className="admin-quotation-help">Create individual staff accounts, assign permissions and deactivate access when someone leaves the team. Employee passwords are stored as secure hashes.</p>
+          <div className="admin-employees-layout">
+            <div className="admin-employee-list">
+              {employees.length ? employees.map((employee) => <article className="admin-employee-row" key={employee._id}>
+                <div><b>{employee.fullName}</b><small>{employee.jobTitle || employee.department || employee.email}</small><small>{employee.email}</small><span className={'admin-status ' + (employee.active ? 'status-quoted' : 'status-closed')}>{employee.active ? 'Active' : 'Inactive'} · {employee.role}</span></div>
+                <div className="admin-employee-actions"><button className="admin-secondary-button" onClick={() => editEmployee(employee)}>Edit</button><button className="admin-secondary-button" onClick={() => toggleEmployee(employee)}>{employee.active ? 'Deactivate' : 'Activate'}</button></div>
+              </article>) : <p className="admin-empty">No employee accounts have been created yet.</p>}
+            </div>
+            <form className="admin-edit-section admin-employee-form" id="employee-form" onSubmit={saveEmployee}>
+              <h3>{editingEmployeeId ? 'Edit employee' : 'Add employee'}</h3>
+              <div className="admin-quotation-fields">
+                <label>Full name<input required maxLength="100" value={employeeForm.fullName} onChange={(e) => setEmployeeForm({ ...employeeForm, fullName: e.target.value })} /></label>
+                <label>Email address<input required type="email" maxLength="150" value={employeeForm.email} onChange={(e) => setEmployeeForm({ ...employeeForm, email: e.target.value })} /></label>
+                <label>Phone number<input maxLength="30" value={employeeForm.phone} onChange={(e) => setEmployeeForm({ ...employeeForm, phone: e.target.value })} /></label>
+                <label>Job title<input maxLength="100" value={employeeForm.jobTitle} onChange={(e) => setEmployeeForm({ ...employeeForm, jobTitle: e.target.value })} placeholder="e.g. Logistics Coordinator" /></label>
+                <label>Department<input maxLength="100" value={employeeForm.department} onChange={(e) => setEmployeeForm({ ...employeeForm, department: e.target.value })} placeholder="e.g. Operations" /></label>
+                <label>Access role<select value={employeeForm.role} onChange={(e) => setEmployeeForm({ ...employeeForm, role: e.target.value })}><option value="viewer">Viewer — read-only</option><option value="operations">Operations — update requests and notes</option><option value="sales">Sales — prepare quotations</option><option value="manager">Manager — manage requests and quotations</option></select></label>
+                <label className="admin-quotation-full">{editingEmployeeId ? 'Reset password (optional)' : 'Initial password'}<input type="password" minLength="10" autoComplete="new-password" required={!editingEmployeeId} value={employeeForm.password} onChange={(e) => setEmployeeForm({ ...employeeForm, password: e.target.value })} placeholder="At least 10 characters" /></label>
+              </div>
+              <div className="admin-quotation-actions"><button className="admin-primary-button" disabled={employeeBusy}>{employeeBusy ? 'Saving…' : editingEmployeeId ? 'Save employee' : 'Create employee'}</button>{editingEmployeeId && <button type="button" className="admin-secondary-button" onClick={() => { setEditingEmployeeId(''); setEmployeeForm({ fullName: '', email: '', phone: '', jobTitle: '', department: '', role: 'viewer', password: '' }); }}>Cancel</button>}</div>
+              <p className="admin-quotation-help">New employees sign in at this same admin portal using their email and initial password. Give credentials to staff privately.</p>
+            </form>
+          </div>
+        </section>}
       </section>
     </main>
   );
