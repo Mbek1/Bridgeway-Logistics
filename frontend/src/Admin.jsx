@@ -85,7 +85,14 @@ export default function AdminDashboard() {
     finally { setBusy(false); }
   }
 
-  async function copyQuotationLink() {\n    if (!selected?.quotation?.publicToken) return;\n    const link = window.location.origin + '/#/quotation/' + selected.quotation.publicToken;\n    try { await navigator.clipboard.writeText(link); setNotice('Customer quotation link copied.'); }\n    catch { setNotice('Copy was blocked by the browser. Copy this link: ' + link); }\n  }\n\n  async function saveQuote() {
+  async function copyQuotationLink() {
+    if (!selected?.quotation?.publicToken) return;
+    const link = window.location.origin + '/#/quotation/' + selected.quotation.publicToken;
+    try { await navigator.clipboard.writeText(link); setNotice('Customer quotation link copied.'); }
+    catch { setNotice('Copy was blocked by the browser. Copy this link: ' + link); }
+  }
+
+  async function saveQuote() {
     if (!selected) return;
     setBusy(true); setError(''); setNotice('');
     try {
@@ -149,7 +156,9 @@ export default function AdminDashboard() {
           <article className="admin-stat-card"><span>Total enquiries</span><strong>{stats.total}</strong></article>
           <article className="admin-stat-card"><span>New requests</span><strong>{stats.newRequests}</strong></article>
           <article className="admin-stat-card"><span>Pending quotations</span><strong>{stats.pendingQuotations}</strong></article>
-          <article className="admin-stat-card"><span>Closed requests</span><strong>{stats.closedRequests}</strong></article>\n          <article className="admin-stat-card"><span>Quotations issued</span><strong>{stats.issuedQuotations || 0}</strong></article>\n          <article className="admin-stat-card"><span>Quotation issue rate</span><strong>{stats.quotationIssueRate || 0}%</strong></article>
+          <article className="admin-stat-card"><span>Closed requests</span><strong>{stats.closedRequests}</strong></article>
+          <article className="admin-stat-card"><span>Quotations issued</span><strong>{stats.issuedQuotations || 0}</strong></article>
+          <article className="admin-stat-card"><span>Quotation issue rate</span><strong>{stats.quotationIssueRate || 0}%</strong></article>
         </div>
         <section className="admin-report-section">
           <div className="admin-quotation-heading"><div><p className="admin-eyebrow">BUSINESS PERFORMANCE</p><h3>Monthly enquiry and quotation report</h3></div><span className="admin-count">Last 6 months</span></div>
