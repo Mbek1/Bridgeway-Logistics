@@ -26,7 +26,9 @@ const quoteSchema = new mongoose.Schema(
       emailStatus: { type: String, enum: ['not_sent', 'sent', 'failed', 'not_configured', 'no_email'], default: 'not_sent' },
       emailSentAt: { type: Date, default: null },
       emailError: { type: String, trim: true, maxlength: 500, default: '' },
+      publicToken: { type: String, select: false, default: '' },
     },
+    activityLog: [{ action: { type: String, required: true, maxlength: 60 }, details: { type: String, maxlength: 500, default: '' }, actor: { type: String, maxlength: 150, default: '' }, createdAt: { type: Date, default: Date.now } }],
     quotationHistory: [{
       reference: { type: String, maxlength: 60 },
       amount: { type: Number, min: 0 },
