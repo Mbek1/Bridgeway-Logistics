@@ -14,6 +14,16 @@ const quoteSchema = new mongoose.Schema(
     preferredDate: { type: String, trim: true, default: '' },
     message: { type: String, trim: true, maxlength: 1500, default: '' },
     internalNotes: { type: String, trim: true, maxlength: 3000, default: '' },
+    quotation: {
+      reference: { type: String, trim: true, maxlength: 60, default: '' },
+      amount: { type: Number, min: 0, default: 0 },
+      currency: { type: String, enum: ['ZMW'], default: 'ZMW' },
+      description: { type: String, trim: true, maxlength: 3000, default: '' },
+      terms: { type: String, trim: true, maxlength: 3000, default: '' },
+      validUntil: { type: Date, default: null },
+      status: { type: String, enum: ['draft', 'issued', 'accepted', 'rejected', 'expired'], default: 'draft' },
+      issuedAt: { type: Date, default: null },
+    },
     status: {
       type: String,
       enum: ['new', 'contacted', 'quoted', 'closed'],
