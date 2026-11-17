@@ -50,6 +50,18 @@ router.post('/login', (req, res) => {
   return res.json({ token: makeToken({ email: adminEmail, iat: now, exp: now + TOKEN_TTL }), expiresIn: TOKEN_TTL, email: adminEmail });
 });
 
+router.get('/stats', requireAdmin, async (_req, res, next) => {
+  try {
+    const [total, newRequests, pendingQuotations, closedRequests] = await Promise.all([
+      Quote.countDocuments({}),
+      Quote.countDocuments({ status: 'new' }),
+      Quote.countDocuments({ status: { $in: ['new', 'contacted'] } }),
+      Quote.countDocuments({ status: 'closed' }),
+    ]);
+    return res.json({ total, newRequests, pendingQuotations, closedRequests });
+  } catch (error) { return next(error); }
+});
+
 router.get('/quotes', requireAdmin, async (req, res, next) => {
   try {
     const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 100, 1), 200);
@@ -89,6 +101,37 @@ router.patch('/quotes/:id', requireAdmin, async (req, res, next) => {
 });
 
 
+async function sendQuotationEmail(quote) {
+  if (!quote.email) return { status: 'no_email', error: 'Customer did not provide an email address.' };
+  if (!process.env.RESEND_API_KEY || !process.env.FROM_EMAIL) return { status: 'not_configured', error: 'Configure RESEND_API_KEY and FROM_EMAIL in Render.' };
+  const q = quote.quotation;
+  const money = new Intl.NumberFormat('en-ZM', { style: 'currency', currency: 'ZMW' }).format(q.amount);
+  const textBody = [
+    'Dear ' + quote.fullName + ',',
+    '',
+    'Thank you for your enquiry. Your Bridgeway Logistics quotation is ready.',
+    'Quotation reference: ' + q.reference,
+    'Enquiry reference: ' + quote.reference,
+    'Service: ' + quote.service,
+    'Route: ' + quote.pickupLocation + ' to ' + quote.deliveryLocation,
+    'Amount: ' + money,
+    'Services included: ' + q.description,
+    'Terms: ' + (q.terms || 'As discussed with our team.'),
+    'Valid until: ' + new Date(q.validUntil).toLocaleDateString('en-ZM'),
+    '',
+    'Please contact our team if you would like to accept this quotation.',
+    'Kind regards, Bridgeway Logistics',
+  ].join('\n');
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + process.env.RESEND_API_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: process.env.FROM_EMAIL, to: [quote.email], subject: 'Bridgeway Logistics quotation ' + q.reference, text: textBody }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) return { status: 'failed', error: String(result.message || 'Email provider rejected the request.').slice(0, 500) };
+  return { status: 'sent', error: '' };
+}
+
 router.patch('/quotes/:id/quotation', requireAdmin, async (req, res, next) => {
   try {
     const input = req.body?.quotation;
@@ -105,22 +148,36 @@ router.patch('/quotes/:id/quotation', requireAdmin, async (req, res, next) => {
     if (terms.length > 3000) return res.status(400).json({ message: 'Terms must be 3,000 characters or fewer.' });
     const quote = await Quote.findById(req.params.id);
     if (!quote) return res.status(404).json({ message: 'Quote request not found.' });
+    const previous = quote.quotation?.reference ? quote.quotation.toObject() : null;
     const quotationReference = (typeof input.reference === 'string' && input.reference.trim())
       ? input.reference.trim().slice(0, 60)
-      : (quote.quotation?.reference || `BWQ-${Date.now().toString(36).toUpperCase()}`);
+      : (quote.quotation?.reference || 'BWQ-' + Date.now().toString(36).toUpperCase());
+    const shouldSendEmail = status === 'issued' && (
+      quote.quotation?.status !== 'issued' ||
+      quote.quotation?.reference !== quotationReference ||
+      Number(quote.quotation?.amount) !== amount ||
+      quote.quotation?.description !== description ||
+      new Date(quote.quotation?.validUntil || 0).getTime() !== validUntil.getTime()
+    );
     quote.quotation = {
-      reference: quotationReference,
-      amount,
-      currency: 'ZMW',
-      description,
-      terms,
-      validUntil,
-      status,
+      reference: quotationReference, amount, currency: 'ZMW', description, terms, validUntil, status,
       issuedAt: status === 'issued' ? (quote.quotation?.issuedAt || new Date()) : (quote.quotation?.issuedAt || null),
+      emailStatus: shouldSendEmail ? 'not_sent' : (quote.quotation?.emailStatus || 'not_sent'),
+      emailSentAt: quote.quotation?.emailSentAt || null,
+      emailError: '',
     };
     if (status === 'issued') quote.status = 'quoted';
+    if (previous) quote.quotationHistory.push({ ...previous, savedAt: new Date() });
     await quote.save();
-    return res.json({ quote: quote.toObject() });
+    let email = { status: quote.quotation.emailStatus, error: quote.quotation.emailError };
+    if (shouldSendEmail) {
+      email = await sendQuotationEmail(quote);
+      quote.quotation.emailStatus = email.status;
+      quote.quotation.emailError = email.error;
+      if (email.status === 'sent') quote.quotation.emailSentAt = new Date();
+      await quote.save();
+    }
+    return res.json({ quote: quote.toObject(), email });
   } catch (error) { return next(error); }
 });
 
