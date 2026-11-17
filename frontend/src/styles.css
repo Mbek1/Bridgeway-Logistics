@@ -342,3 +342,17 @@ h1 em, h2 em { color: var(--orange); font-style: normal; }
   .admin-quotation-print h3{margin:20px 0 5px}
   .admin-print-footer{margin-top:45px;padding-top:15px;border-top:1px solid #ccc;color:#667}
 }
+
+/* Dashboard metrics and quotation revision timeline */
+.admin-stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 18px}
+.admin-stat-card{padding:18px 20px;background:#fff;border:1px solid #e4e9ec;display:flex;flex-direction:column;gap:9px}
+.admin-stat-card span{color:#71808a;font-size:10px;font-weight:700;letter-spacing:.04em}
+.admin-stat-card strong{color:#10283b;font-size:27px;line-height:1}
+.admin-history-section{padding:20px 23px;border-top:1px solid #edf0f2}
+.admin-history-item{display:grid;grid-template-columns:1fr auto;gap:6px 14px;padding:13px 0;border-bottom:1px solid #edf0f2}
+.admin-history-item>div{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.admin-history-item>div b{font-size:12px;color:#233d50}
+.admin-history-item>strong{color:#173247;font-size:12px}
+.admin-history-item>small{grid-column:1/-1;color:#87949d;font-size:10px}
+@media(max-width:800px){.admin-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){.admin-stats-grid{gap:8px}.admin-stat-card{padding:14px}.admin-stat-card strong{font-size:23px}}
