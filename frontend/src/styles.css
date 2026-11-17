@@ -398,7 +398,6 @@ h1 em, h2 em { color: var(--orange); font-style: normal; }
 .public-quotation-card footer{padding-top:18px;margin-top:28px;border-top:1px solid #dce3e7;color:#87949d;font-size:10px;line-height:1.8}
 @media(max-width:600px){.admin-report-section{padding:17px}.admin-report-chart{gap:5px}.admin-report-month small{font-size:8px}.public-quotation-page{padding:15px 10px}.public-quotation-card{padding:24px 18px}.public-quotation-card>header{align-items:flex-start;flex-direction:column}.public-quotation-meta{grid-template-columns:1fr}}
 @media print{
-  body *{visibility:hidden!important}
   .public-quotation-page,.public-quotation-page *{visibility:visible!important}
   .public-quotation-page{position:absolute;inset:0;padding:0;background:#fff}
   .public-quotation-card{max-width:none;padding:20px;border:0;box-shadow:none}
