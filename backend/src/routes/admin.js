@@ -89,7 +89,7 @@ router.post('/employees', requireAuth, requireRoles('admin'), async (req, res, n
     const password = typeof req.body?.password === 'string' ? req.body.password : '';
     const role = String(req.body?.role || 'viewer');
     if (!fullName || fullName.length > 100) return res.status(400).json({ message: 'Enter an employee name (up to 100 characters).' });
-    if (!/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(email) || email.length > 150) return res.status(400).json({ message: 'Enter a valid employee email address.' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 150) return res.status(400).json({ message: 'Enter a valid employee email address.' });
     if (password.length < 10 || password.length > 128) return res.status(400).json({ message: 'Employee passwords must be at least 10 characters long.' });
     if (!EMPLOYEE_ROLES.includes(role)) return res.status(400).json({ message: 'Choose a valid employee role.' });
     const employee = await Employee.create({ fullName, email, passwordHash: passwordHash(password), role, phone: String(req.body?.phone || '').trim().slice(0, 30), jobTitle: String(req.body?.jobTitle || '').trim().slice(0, 100), department: String(req.body?.department || '').trim().slice(0, 100), createdBy: req.admin.email });
@@ -107,7 +107,7 @@ router.patch('/employees/:id', requireAuth, requireRoles('admin'), async (req, r
     if (!employee) return res.status(404).json({ message: 'Employee not found.' });
     const { fullName, email, phone, jobTitle, department, role, active, password } = req.body || {};
     if (fullName !== undefined) { if (typeof fullName !== 'string' || !fullName.trim() || fullName.trim().length > 100) return res.status(400).json({ message: 'Enter a valid employee name.' }); employee.fullName = fullName.trim(); }
-    if (email !== undefined) { const value = String(email).trim().toLowerCase(); if (!/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(value) || value.length > 150) return res.status(400).json({ message: 'Enter a valid employee email address.' }); employee.email = value; }
+    if (email !== undefined) { const value = String(email).trim().toLowerCase(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || value.length > 150) return res.status(400).json({ message: 'Enter a valid employee email address.' }); employee.email = value; }
     if (phone !== undefined) employee.phone = String(phone).trim().slice(0, 30);
     if (jobTitle !== undefined) employee.jobTitle = String(jobTitle).trim().slice(0, 100);
     if (department !== undefined) employee.department = String(department).trim().slice(0, 100);
