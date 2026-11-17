@@ -88,4 +88,40 @@ router.patch('/quotes/:id', requireAdmin, async (req, res, next) => {
   } catch (error) { return next(error); }
 });
 
+
+router.patch('/quotes/:id/quotation', requireAdmin, async (req, res, next) => {
+  try {
+    const input = req.body?.quotation;
+    if (!input || typeof input !== 'object') return res.status(400).json({ message: 'Quotation details are required.' });
+    const amount = Number(input.amount);
+    const description = typeof input.description === 'string' ? input.description.trim() : '';
+    const terms = typeof input.terms === 'string' ? input.terms.trim() : '';
+    const validUntil = input.validUntil ? new Date(input.validUntil) : null;
+    const status = input.status === 'issued' ? 'issued' : 'draft';
+    if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ message: 'Enter a quotation amount greater than zero.' });
+    if (!description || description.length > 3000) return res.status(400).json({ message: 'Add a description of the services covered (up to 3,000 characters).' });
+    if (!validUntil || Number.isNaN(validUntil.getTime())) return res.status(400).json({ message: 'Choose a valid quotation expiry date.' });
+    if (validUntil < new Date(new Date().toDateString())) return res.status(400).json({ message: 'The validity date cannot be in the past.' });
+    if (terms.length > 3000) return res.status(400).json({ message: 'Terms must be 3,000 characters or fewer.' });
+    const quote = await Quote.findById(req.params.id);
+    if (!quote) return res.status(404).json({ message: 'Quote request not found.' });
+    const quotationReference = (typeof input.reference === 'string' && input.reference.trim())
+      ? input.reference.trim().slice(0, 60)
+      : (quote.quotation?.reference || `BWQ-${Date.now().toString(36).toUpperCase()}`);
+    quote.quotation = {
+      reference: quotationReference,
+      amount,
+      currency: 'ZMW',
+      description,
+      terms,
+      validUntil,
+      status,
+      issuedAt: status === 'issued' ? (quote.quotation?.issuedAt || new Date()) : (quote.quotation?.issuedAt || null),
+    };
+    if (status === 'issued') quote.status = 'quoted';
+    await quote.save();
+    return res.json({ quote: quote.toObject() });
+  } catch (error) { return next(error); }
+});
+
 export default router;
