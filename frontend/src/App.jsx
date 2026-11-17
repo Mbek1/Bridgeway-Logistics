@@ -330,7 +330,37 @@ function PublicSite() {
   );
 }
 
+function PublicQuotationPage({ token }) {
+  const [quotation, setQuotation] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let active = true;
+    fetch(API_BASE + '/quotes/quotation/' + encodeURIComponent(token))
+      .then(async (response) => { const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.message || 'Quotation unavailable.'); return data.quotation; })
+      .then((data) => { if (active) setQuotation(data); })
+      .catch((err) => { if (active) setError(err.message); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [token]);
+  if (loading) return <main className="public-quotation-page"><p>Loading your quotation…</p></main>;
+  if (error || !quotation) return <main className="public-quotation-page"><div className="public-quotation-card"><p className="admin-eyebrow">BRIDGEWAY LOGISTICS</p><h1>Quotation unavailable</h1><p>{error}</p><a href="/#home">Return to Bridgeway Logistics</a></div></main>;
+  return <main className="public-quotation-page"><article className="public-quotation-card">
+    <header><div><strong>BRIDGEWAY LOGISTICS</strong><span>LOGISTICS QUOTATION</span></div><button onClick={() => window.print()}>Download / print PDF</button></header>
+    <p className="admin-eyebrow">YOUR QUOTATION</p><h1>{quotation.reference}</h1>
+    <p className="public-quotation-intro">Thank you for considering Bridgeway Logistics. Please review your quotation below.</p>
+    <div className="public-quotation-meta"><div><small>Prepared for</small><b>{quotation.customerName}</b></div><div><small>Enquiry reference</small><b>{quotation.enquiryReference}</b></div><div><small>Service</small><b>{quotation.service}</b></div><div><small>Route</small><b>{quotation.pickupLocation} → {quotation.deliveryLocation}</b></div></div>
+    <section><h2>Services included</h2><p>{quotation.description}</p></section>
+    <div className="public-quotation-total"><small>TOTAL QUOTATION</small><strong>{quotation.currency} {Number(quotation.amount).toLocaleString('en-ZM', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div>
+    {quotation.terms && <section><h2>Terms and conditions</h2><p>{quotation.terms}</p></section>}
+    <p className="public-quotation-validity">Valid until {new Date(quotation.validUntil).toLocaleDateString('en-ZM')}</p>
+    <footer>Prepared by Bridgeway Logistics · Lusaka Province, Zambia<br/>Please contact our team if you wish to accept this quotation.</footer>
+  </article></main>;
+}
+
 function App() {
+  const quotationMatch = window.location.hash.match(/^#\/quotation\/([a-f0-9]{64})$/);
+  if (quotationMatch) return <PublicQuotationPage token={quotationMatch[1]} />;
   return window.location.hash.startsWith('#/admin') ? <AdminDashboard /> : <PublicSite />;
 }
 
