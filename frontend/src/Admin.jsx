@@ -10,7 +10,7 @@ export default function AdminDashboard() {
   const [email, setEmail] = useState('kezlarmudenda90@gmail.com');
   const [password, setPassword] = useState('');
   const [quotes, setQuotes] = useState([]);
-  const [stats, setStats] = useState({ total: 0, newRequests: 0, pendingQuotations: 0, closedRequests: 0 });
+  const [stats, setStats] = useState({ total: 0, newRequests: 0, pendingQuotations: 0, closedRequests: 0, issuedQuotations: 0, quotationIssueRate: 0, monthlyReports: [] });
   const [selectedId, setSelectedId] = useState('');
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
@@ -85,7 +85,7 @@ export default function AdminDashboard() {
     finally { setBusy(false); }
   }
 
-  async function saveQuote() {
+  async function copyQuotationLink() {\n    if (!selected?.quotation?.publicToken) return;\n    const link = window.location.origin + '/#/quotation/' + selected.quotation.publicToken;\n    try { await navigator.clipboard.writeText(link); setNotice('Customer quotation link copied.'); }\n    catch { setNotice('Copy was blocked by the browser. Copy this link: ' + link); }\n  }\n\n  async function saveQuote() {
     if (!selected) return;
     setBusy(true); setError(''); setNotice('');
     try {
@@ -149,8 +149,13 @@ export default function AdminDashboard() {
           <article className="admin-stat-card"><span>Total enquiries</span><strong>{stats.total}</strong></article>
           <article className="admin-stat-card"><span>New requests</span><strong>{stats.newRequests}</strong></article>
           <article className="admin-stat-card"><span>Pending quotations</span><strong>{stats.pendingQuotations}</strong></article>
-          <article className="admin-stat-card"><span>Closed requests</span><strong>{stats.closedRequests}</strong></article>
+          <article className="admin-stat-card"><span>Closed requests</span><strong>{stats.closedRequests}</strong></article>\n          <article className="admin-stat-card"><span>Quotations issued</span><strong>{stats.issuedQuotations || 0}</strong></article>\n          <article className="admin-stat-card"><span>Quotation issue rate</span><strong>{stats.quotationIssueRate || 0}%</strong></article>
         </div>
+        <section className="admin-report-section">
+          <div className="admin-quotation-heading"><div><p className="admin-eyebrow">BUSINESS PERFORMANCE</p><h3>Monthly enquiry and quotation report</h3></div><span className="admin-count">Last 6 months</span></div>
+          <div className="admin-report-chart">{Array.from({ length: 6 }, (_, index) => { const date = new Date(); date.setMonth(date.getMonth() - 5 + index, 1); const key = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0'); const item = (stats.monthlyReports || []).find((row) => row._id === key) || {}; const max = Math.max(1, ...(stats.monthlyReports || []).map((row) => row.enquiries || 0)); return <div className="admin-report-month" key={key}><div className="admin-report-bars"><span title={'Enquiries: ' + (item.enquiries || 0)} style={{ height: Math.max(3, ((item.enquiries || 0) / max) * 100) + '%' }} /><i title={'Quotations issued: ' + (item.quotationsIssued || 0)} style={{ height: Math.max(3, ((item.quotationsIssued || 0) / max) * 100) + '%' }} /></div><b>{date.toLocaleString('en', { month: 'short' })}</b><small>{item.enquiries || 0} enquiries · {item.quotationsIssued || 0} issued</small></div>; })}</div>
+          <p className="admin-report-legend"><i /> Enquiries <i /> Quotations issued</p>
+        </section>
         <div className="admin-toolbar">
           <label className="admin-search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadQuotes()} placeholder="Search name, reference, phone…" /></label>
           <select value={status} onChange={(e) => setStatus(e.target.value)}><option value="all">All statuses</option>{STATUSES.map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}</select>
@@ -192,7 +197,7 @@ export default function AdminDashboard() {
                   <label className="admin-quotation-full">Description / services included<textarea rows="4" maxLength="3000" value={quotation.description} onChange={(e) => setQuotation({ ...quotation, description: e.target.value })} placeholder="Describe the transport, handling, route, or other services covered by this price." required /></label>
                   <label className="admin-quotation-full">Terms and conditions<textarea rows="3" maxLength="3000" value={quotation.terms} onChange={(e) => setQuotation({ ...quotation, terms: e.target.value })} placeholder="Payment terms, exclusions, conditions, and other important notes." /></label>
                 </div>
-                <div className="admin-quotation-actions"><button className="admin-primary-button" onClick={saveQuotation} disabled={busy}>Save quotation</button>{selected.quotation?.reference && <button className="admin-secondary-button" type="button" onClick={() => window.print()}>Print quotation</button>}</div>
+                <div className="admin-quotation-actions"><button className="admin-primary-button" onClick={saveQuotation} disabled={busy}>Save quotation</button>{selected.quotation?.reference && <button className="admin-secondary-button" type="button" onClick={() => window.print()}>Download / print PDF</button>{selected.quotation?.publicToken && <button className="admin-secondary-button" type="button" onClick={copyQuotationLink}>Copy customer link</button>}}</div>
                 {selected.quotation?.reference && <div className="admin-quotation-print">
                   <div className="admin-print-top"><strong>BRIDGEWAY LOGISTICS</strong><span>QUOTATION</span></div>
                   <p><b>Quotation:</b> {selected.quotation.reference}</p>
@@ -214,6 +219,12 @@ export default function AdminDashboard() {
                   <div><b>{item.reference || 'Quotation version'}</b><span className="admin-status">{item.status || 'draft'}</span></div>
                   <strong>ZMW {Number(item.amount || 0).toLocaleString('en-ZM', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
                   <small>Saved: {dateText(item.savedAt)} · Valid until: {dateText(item.validUntil)}</small>
+                </article>)}
+              </section>}
+              {selected.activityLog?.length > 0 && <section className="admin-history-section">
+                <div className="admin-quotation-heading"><div><p className="admin-eyebrow">AUDIT TRAIL</p><h3>Admin activity</h3></div><span className="admin-count">{selected.activityLog.length} event(s)</span></div>
+                {[...selected.activityLog].reverse().map((event, index) => <article className="admin-activity-item" key={event._id || index}>
+                  <div><b>{String(event.action || 'activity').replaceAll('_', ' ')}</b><small>{dateText(event.createdAt)} · {event.actor || 'Admin'}</small></div><p>{event.details}</p>
                 </article>)}
               </section>}
               <div className="admin-edit-section">
