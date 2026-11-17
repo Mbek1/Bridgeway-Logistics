@@ -10,6 +10,7 @@ export default function AdminDashboard() {
   const [email, setEmail] = useState('kezlarmudenda90@gmail.com');
   const [password, setPassword] = useState('');
   const [quotes, setQuotes] = useState([]);
+  const [stats, setStats] = useState({ total: 0, newRequests: 0, pendingQuotations: 0, closedRequests: 0 });
   const [selectedId, setSelectedId] = useState('');
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
@@ -44,8 +45,9 @@ export default function AdminDashboard() {
       const params = new URLSearchParams();
       if (search.trim()) params.set('search', search.trim());
       if (status !== 'all') params.set('status', status);
-      const data = await request('/admin/quotes?' + params.toString());
+      const [data, summary] = await Promise.all([request('/admin/quotes?' + params.toString()), request('/admin/stats')]);
       setQuotes(data.quotes || []);
+      setStats(summary);
       setSelectedId((old) => (data.quotes || []).some((q) => q._id === old) ? old : (data.quotes?.[0]?._id || ''));
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
@@ -107,7 +109,8 @@ export default function AdminDashboard() {
       });
       setQuotes((items) => items.map((q) => q._id === selected._id ? data.quote : q));
       setQuotation((old) => ({ ...old, reference: data.quote.quotation?.reference || old.reference }));
-      setNotice(quotation.status === 'issued' ? 'Quotation issued and request marked as quoted.' : 'Quotation draft saved.');
+      const mailStatus = data.email?.status;
+      setNotice(quotation.status === 'issued' ? (mailStatus === 'sent' ? 'Quotation issued and emailed to the customer.' : mailStatus === 'not_configured' ? 'Quotation issued, but email is not configured yet. Add the Resend settings in Render.' : mailStatus === 'no_email' ? 'Quotation issued, but this customer did not provide an email address.' : mailStatus === 'failed' ? 'Quotation issued, but the email could not be sent: ' + data.email.error : 'Quotation issued and request marked as quoted.') : 'Quotation draft saved.');
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
   }
@@ -142,6 +145,12 @@ export default function AdminDashboard() {
       </div></header>
       <section className="admin-content">
         <div className="admin-title-row"><div><p className="admin-eyebrow">ENQUIRY MANAGEMENT</p><h1>Quote requests</h1><p className="admin-muted">Review incoming enquiries and manage customer follow-ups.</p></div><span className="admin-count">{quotes.length} shown</span></div>
+        <div className="admin-stats-grid">
+          <article className="admin-stat-card"><span>Total enquiries</span><strong>{stats.total}</strong></article>
+          <article className="admin-stat-card"><span>New requests</span><strong>{stats.newRequests}</strong></article>
+          <article className="admin-stat-card"><span>Pending quotations</span><strong>{stats.pendingQuotations}</strong></article>
+          <article className="admin-stat-card"><span>Closed requests</span><strong>{stats.closedRequests}</strong></article>
+        </div>
         <div className="admin-toolbar">
           <label className="admin-search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadQuotes()} placeholder="Search name, reference, phone…" /></label>
           <select value={status} onChange={(e) => setStatus(e.target.value)}><option value="all">All statuses</option>{STATUSES.map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}</select>
@@ -194,11 +203,19 @@ export default function AdminDashboard() {
                   <hr />
                   <h3>Services and pricing</h3><p>{selected.quotation.description}</p>
                   <h2>ZMW {Number(selected.quotation.amount || 0).toLocaleString('en-ZM', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
-                  <p><b>Valid until:</b> {dateText(selected.quotation.validUntil)}</p>
+                  <p><b>Valid until:</b> {dateText(selected.quotation.validUntil)}</p><p><b>Email notification:</b> {selected.quotation.emailStatus || 'not sent'}{selected.quotation.emailSentAt ? ' · ' + dateText(selected.quotation.emailSentAt) : ''}</p>
                   {selected.quotation.terms && <><h3>Terms and conditions</h3><p>{selected.quotation.terms}</p></>}
                   <p className="admin-print-footer">Prepared by Bridgeway Logistics. Please contact our team to accept this quotation.</p>
                 </div>}
               </section>
+              {selected.quotationHistory?.length > 0 && <section className="admin-history-section">
+                <div className="admin-quotation-heading"><div><p className="admin-eyebrow">RECORD KEEPING</p><h3>Quotation history</h3></div><span className="admin-count">{selected.quotationHistory.length} previous version(s)</span></div>
+                {[...selected.quotationHistory].reverse().map((item, index) => <article className="admin-history-item" key={item._id || index}>
+                  <div><b>{item.reference || 'Quotation version'}</b><span className="admin-status">{item.status || 'draft'}</span></div>
+                  <strong>ZMW {Number(item.amount || 0).toLocaleString('en-ZM', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                  <small>Saved: {dateText(item.savedAt)} · Valid until: {dateText(item.validUntil)}</small>
+                </article>)}
+              </section>}
               <div className="admin-edit-section">
                 <label>Request status<select value={nextStatus} onChange={(e) => setNextStatus(e.target.value)}>{STATUSES.map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}</select></label>
                 <label>Internal notes<textarea rows="4" maxLength="3000" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes for the Bridgeway team. Customers cannot see these." /></label>
