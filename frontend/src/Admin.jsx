@@ -15,6 +15,7 @@ export default function AdminDashboard() {
   const [status, setStatus] = useState('all');
   const [notes, setNotes] = useState('');
   const [nextStatus, setNextStatus] = useState('new');
+  const [quotation, setQuotation] = useState({ reference: '', amount: '', description: '', terms: '', validUntil: '', status: 'draft' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -52,7 +53,19 @@ export default function AdminDashboard() {
 
   useEffect(() => { if (token) loadQuotes(); }, [token]);
   useEffect(() => {
-    if (selected) { setNotes(selected.internalNotes || ''); setNextStatus(selected.status || 'new'); }
+    if (selected) {
+      setNotes(selected.internalNotes || '');
+      setNextStatus(selected.status || 'new');
+      const q = selected.quotation || {};
+      setQuotation({
+        reference: q.reference || '',
+        amount: q.amount ? String(q.amount) : '',
+        description: q.description || '',
+        terms: q.terms || '',
+        validUntil: q.validUntil ? new Date(q.validUntil).toISOString().slice(0, 10) : '',
+        status: q.status || 'draft',
+      });
+    }
   }, [selectedId]);
 
   async function signIn(event) {
@@ -79,6 +92,22 @@ export default function AdminDashboard() {
       });
       setQuotes((items) => items.map((q) => q._id === selected._id ? data.quote : q));
       setNotice('Quote request updated.');
+    } catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  }
+
+
+  async function saveQuotation() {
+    if (!selected) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const data = await request('/admin/quotes/' + selected._id + '/quotation', {
+        method: 'PATCH',
+        body: JSON.stringify({ quotation }),
+      });
+      setQuotes((items) => items.map((q) => q._id === selected._id ? data.quote : q));
+      setQuotation((old) => ({ ...old, reference: data.quote.quotation?.reference || old.reference }));
+      setNotice(quotation.status === 'issued' ? 'Quotation issued and request marked as quoted.' : 'Quotation draft saved.');
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
   }
@@ -143,6 +172,33 @@ export default function AdminDashboard() {
                 <div className="admin-detail-wide"><small>Cargo description</small><b>{selected.cargoDescription}</b></div>
                 <div className="admin-detail-wide"><small>Customer message</small><p>{selected.message || 'No additional message.'}</p></div>
               </div>
+              <section className="admin-quotation-editor">
+                <div className="admin-quotation-heading"><div><p className="admin-eyebrow">FORMAL QUOTATION</p><h3>Prepare customer quotation</h3></div><span className="admin-status">{selected.quotation?.status || 'not prepared'}</span></div>
+                <p className="admin-quotation-help">Create a priced quotation for this enquiry. Saving as a draft does not mark it as issued. Issuing it changes the request status to quoted.</p>
+                <div className="admin-quotation-fields">
+                  <label>Quotation reference<input value={quotation.reference} onChange={(e) => setQuotation({ ...quotation, reference: e.target.value })} placeholder="Auto-generated if left blank" maxLength="60" /></label>
+                  <label>Amount (ZMW)<input type="number" min="0.01" step="0.01" value={quotation.amount} onChange={(e) => setQuotation({ ...quotation, amount: e.target.value })} placeholder="e.g. 12500.00" required /></label>
+                  <label>Valid until<input type="date" value={quotation.validUntil} onChange={(e) => setQuotation({ ...quotation, validUntil: e.target.value })} required /></label>
+                  <label>Quotation status<select value={quotation.status} onChange={(e) => setQuotation({ ...quotation, status: e.target.value })}><option value="draft">Draft</option><option value="issued">Issued</option></select></label>
+                  <label className="admin-quotation-full">Description / services included<textarea rows="4" maxLength="3000" value={quotation.description} onChange={(e) => setQuotation({ ...quotation, description: e.target.value })} placeholder="Describe the transport, handling, route, or other services covered by this price." required /></label>
+                  <label className="admin-quotation-full">Terms and conditions<textarea rows="3" maxLength="3000" value={quotation.terms} onChange={(e) => setQuotation({ ...quotation, terms: e.target.value })} placeholder="Payment terms, exclusions, conditions, and other important notes." /></label>
+                </div>
+                <div className="admin-quotation-actions"><button className="admin-primary-button" onClick={saveQuotation} disabled={busy}>Save quotation</button>{selected.quotation?.reference && <button className="admin-secondary-button" type="button" onClick={() => window.print()}>Print quotation</button>}</div>
+                {selected.quotation?.reference && <div className="admin-quotation-print">
+                  <div className="admin-print-top"><strong>BRIDGEWAY LOGISTICS</strong><span>QUOTATION</span></div>
+                  <p><b>Quotation:</b> {selected.quotation.reference}</p>
+                  <p><b>Customer:</b> {selected.fullName}</p>
+                  <p><b>Enquiry reference:</b> {selected.reference}</p>
+                  <p><b>Service:</b> {selected.service}</p>
+                  <p><b>Route:</b> {selected.pickupLocation} → {selected.deliveryLocation}</p>
+                  <hr />
+                  <h3>Services and pricing</h3><p>{selected.quotation.description}</p>
+                  <h2>ZMW {Number(selected.quotation.amount || 0).toLocaleString('en-ZM', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
+                  <p><b>Valid until:</b> {dateText(selected.quotation.validUntil)}</p>
+                  {selected.quotation.terms && <><h3>Terms and conditions</h3><p>{selected.quotation.terms}</p></>}
+                  <p className="admin-print-footer">Prepared by Bridgeway Logistics. Please contact our team to accept this quotation.</p>
+                </div>}
+              </section>
               <div className="admin-edit-section">
                 <label>Request status<select value={nextStatus} onChange={(e) => setNextStatus(e.target.value)}>{STATUSES.map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}</select></label>
                 <label>Internal notes<textarea rows="4" maxLength="3000" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes for the Bridgeway team. Customers cannot see these." /></label>
