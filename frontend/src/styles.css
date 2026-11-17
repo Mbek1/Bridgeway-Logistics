@@ -315,3 +315,30 @@ h1 em, h2 em { color: var(--orange); font-style: normal; }
 .admin-edit-section{padding:20px 23px 24px;border-top:1px solid #edf0f2;background:#fafbfb}.admin-edit-section label{margin:0 0 16px}.admin-edit-section textarea{resize:vertical;line-height:1.6}.admin-edit-section .admin-primary-button{width:auto;min-width:150px;margin-top:0}.admin-empty{padding:28px 20px;color:#89969e;font-size:12px;line-height:1.6}
 @media(max-width:800px){.admin-workspace{grid-template-columns:1fr}.admin-list-panel{max-height:420px;overflow:auto}}
 @media(max-width:560px){.admin-header-inner{align-items:flex-start;flex-direction:column;padding:15px 18px}.admin-header-actions{width:100%;justify-content:space-between;flex-wrap:wrap}.admin-content{padding:28px 14px 50px}.admin-title-row{align-items:flex-start;flex-direction:column}.admin-toolbar{flex-wrap:wrap}.admin-search{flex-basis:100%}.admin-toolbar select{flex:1;width:auto}.admin-login-card{padding:28px 22px}.admin-detail-grid{grid-template-columns:1fr;padding:18px}.admin-detail-wide{grid-column:auto}}
+
+/* Formal quotation editor and printable customer quotation */
+.admin-quotation-editor{padding:22px 23px;border-top:1px solid #edf0f2}
+.admin-quotation-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.admin-quotation-heading h3{margin:0;color:#173247;font-size:17px}
+.admin-quotation-help{color:#75838d;font-size:11px;line-height:1.6;margin:10px 0 18px}
+.admin-quotation-fields{display:grid;grid-template-columns:1fr 1fr;gap:0 15px}
+.admin-quotation-fields label{display:flex;flex-direction:column;gap:7px;margin:0 0 14px;color:#405464;font-size:11px;font-weight:700}
+.admin-quotation-fields input,.admin-quotation-fields textarea{width:100%;min-width:0;border:1px solid #dce3e7;background:#fbfcfc;color:#203849;padding:11px;font:inherit;font-size:12px}
+.admin-quotation-fields textarea{resize:vertical;line-height:1.6}
+.admin-quotation-fields input:focus,.admin-quotation-fields textarea:focus{outline:none;border-color:#e78a3d}
+.admin-quotation-full{grid-column:1/-1}
+.admin-quotation-actions{display:flex;gap:10px;flex-wrap:wrap}
+.admin-quotation-actions .admin-primary-button{width:auto;min-width:150px;margin:0}
+.admin-quotation-actions .admin-secondary-button{background:#eaf0f2;color:#203849}
+.admin-quotation-print{display:none}
+@media(max-width:560px){.admin-quotation-fields{grid-template-columns:1fr}.admin-quotation-full{grid-column:auto}}
+@media print{
+  body *{visibility:hidden!important}
+  .admin-quotation-print,.admin-quotation-print *{visibility:visible!important}
+  .admin-quotation-print{display:block!important;position:absolute;inset:0;width:100%;padding:35px;color:#172534;background:#fff;font:12pt/1.6 Arial,sans-serif}
+  .admin-print-top{display:flex;justify-content:space-between;border-bottom:3px solid #f28a35;padding-bottom:16px;margin-bottom:24px;font-size:18pt}
+  .admin-print-top span{font-size:12pt;letter-spacing:.15em}
+  .admin-quotation-print h2{font-size:22pt;margin:18px 0;color:#10283b}
+  .admin-quotation-print h3{margin:20px 0 5px}
+  .admin-print-footer{margin-top:45px;padding-top:15px;border-top:1px solid #ccc;color:#667}
+}
