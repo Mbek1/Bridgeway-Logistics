@@ -1,6 +1,7 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { Router } from 'express';
 import Quote from '../models/Quote.js';
+import Employee from '../models/Employee.js';
 
 const router = Router();
 const TOKEN_TTL = 8 * 60 * 60;
@@ -16,41 +17,113 @@ function makeToken(payload) {
   const input = head + '.' + body;
   return input + '.' + createHmac('sha256', process.env.JWT_SECRET).update(input).digest('base64url');
 }
-function requireAdmin(req, res, next) {
+async function requireAuth(req, res, next) {
   try {
-    const token = (req.get('authorization') || '').replace(/^Bearer\s+/, '');
+    const token = (req.get('authorization') || '').replace(/^Bearer\\s+/, '');
     const parts = token.split('.');
     if (!process.env.JWT_SECRET || parts.length !== 3) return res.status(401).json({ message: 'Please sign in to access the dashboard.' });
     const input = parts[0] + '.' + parts[1];
     const signature = createHmac('sha256', process.env.JWT_SECRET).update(input).digest('base64url');
     if (!equalSecret(parts[2], signature)) return res.status(401).json({ message: 'Your session is invalid. Please sign in again.' });
     const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
-    if (payload.exp <= Math.floor(Date.now() / 1000) || payload.email !== (process.env.ADMIN_EMAIL || '').trim().toLowerCase()) {
-      return res.status(401).json({ message: 'Your session has expired. Please sign in again.' });
+    if (!payload.exp || payload.exp <= Math.floor(Date.now() / 1000)) return res.status(401).json({ message: 'Your session has expired. Please sign in again.' });
+    if (payload.role === 'admin' && payload.email === (process.env.ADMIN_EMAIL || '').trim().toLowerCase()) {
+      req.admin = { email: payload.email, role: 'admin' };
+      return next();
     }
-    req.admin = { email: payload.email };
-    return next();
+    if (payload.role === 'employee' && payload.employeeId) {
+      const employee = await Employee.findById(payload.employeeId).select('fullName email role active');
+      if (!employee || !employee.active || employee.email !== payload.email) return res.status(401).json({ message: 'This employee account is inactive or unavailable.' });
+      req.admin = { email: employee.email, name: employee.fullName, role: employee.role, employeeId: String(employee._id) };
+      return next();
+    }
+    return res.status(401).json({ message: 'Your session is invalid. Please sign in again.' });
   } catch {
     return res.status(401).json({ message: 'Your session is invalid. Please sign in again.' });
   }
 }
+function requireRoles(...roles) {
+  return (req, res, next) => roles.includes(req.admin?.role) ? next() : res.status(403).json({ message: 'Your account does not have permission to perform this action.' });
+}
+function passwordHash(password) {
+  const salt = randomBytes(16).toString('hex');
+  return salt + ':' + scryptSync(password, salt, 64).toString('hex');
+}
+function passwordMatches(password, stored) {
+  const [salt, hash] = String(stored || '').split(':');
+  if (!salt || !hash) return false;
+  return equalSecret(scryptSync(password, salt, 64).toString('hex'), hash);
+}
+const EMPLOYEE_ROLES = ['manager', 'operations', 'sales', 'viewer'];
 
-router.post('/login', (req, res) => {
-  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-  const password = typeof req.body?.password === 'string' ? req.body.password : '';
-  const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
-  const adminPassword = process.env.ADMIN_PASSWORD || '';
-  if (!process.env.JWT_SECRET || !adminEmail || !adminPassword) {
-    return res.status(503).json({ message: 'Admin login is not configured on the server.' });
-  }
-  if (!equalSecret(email, adminEmail) || !equalSecret(password, adminPassword)) {
-    return res.status(401).json({ message: 'Incorrect email or password.' });
-  }
-  const now = Math.floor(Date.now() / 1000);
-  return res.json({ token: makeToken({ email: adminEmail, iat: now, exp: now + TOKEN_TTL }), expiresIn: TOKEN_TTL, email: adminEmail });
+router.post('/login', async (req, res, next) => {
+  try {
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+    const adminPassword = process.env.ADMIN_PASSWORD || '';
+    if (!process.env.JWT_SECRET) return res.status(503).json({ message: 'Authentication is not configured on the server.' });
+    const now = Math.floor(Date.now() / 1000);
+    if (adminEmail && adminPassword && equalSecret(email, adminEmail) && equalSecret(password, adminPassword)) {
+      return res.json({ token: makeToken({ email: adminEmail, role: 'admin', iat: now, exp: now + TOKEN_TTL }), expiresIn: TOKEN_TTL, email: adminEmail, name: 'Administrator', role: 'admin' });
+    }
+    const employee = await Employee.findOne({ email }).select('+passwordHash');
+    if (!employee || !employee.active || !passwordMatches(password, employee.passwordHash)) return res.status(401).json({ message: 'Incorrect email or password, or the account is inactive.' });
+    employee.lastLoginAt = new Date();
+    await employee.save();
+    return res.json({ token: makeToken({ email: employee.email, employeeId: String(employee._id), role: 'employee', iat: now, exp: now + TOKEN_TTL }), expiresIn: TOKEN_TTL, email: employee.email, name: employee.fullName, role: employee.role });
+  } catch (error) { return next(error); }
 });
 
-router.get('/stats', requireAdmin, async (_req, res, next) => {
+router.get('/employees', requireAuth, requireRoles('admin'), async (_req, res, next) => {
+  try {
+    const employees = await Employee.find().select('-passwordHash -__v').sort({ createdAt: -1 }).lean();
+    return res.json({ employees });
+  } catch (error) { return next(error); }
+});
+
+router.post('/employees', requireAuth, requireRoles('admin'), async (req, res, next) => {
+  try {
+    const fullName = typeof req.body?.fullName === 'string' ? req.body.fullName.trim() : '';
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    const role = String(req.body?.role || 'viewer');
+    if (!fullName || fullName.length > 100) return res.status(400).json({ message: 'Enter an employee name (up to 100 characters).' });
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || email.length > 150) return res.status(400).json({ message: 'Enter a valid employee email address.' });
+    if (password.length < 10 || password.length > 128) return res.status(400).json({ message: 'Employee passwords must be at least 10 characters long.' });
+    if (!EMPLOYEE_ROLES.includes(role)) return res.status(400).json({ message: 'Choose a valid employee role.' });
+    const employee = await Employee.create({ fullName, email, passwordHash: passwordHash(password), role, phone: String(req.body?.phone || '').trim().slice(0, 30), jobTitle: String(req.body?.jobTitle || '').trim().slice(0, 100), department: String(req.body?.department || '').trim().slice(0, 100), createdBy: req.admin.email });
+    const safe = employee.toObject(); delete safe.passwordHash;
+    return res.status(201).json({ employee: safe });
+  } catch (error) {
+    if (error.code === 11000) return res.status(409).json({ message: 'An employee account already exists for that email address.' });
+    return next(error);
+  }
+});
+
+router.patch('/employees/:id', requireAuth, requireRoles('admin'), async (req, res, next) => {
+  try {
+    const employee = await Employee.findById(req.params.id).select('+passwordHash');
+    if (!employee) return res.status(404).json({ message: 'Employee not found.' });
+    const { fullName, email, phone, jobTitle, department, role, active, password } = req.body || {};
+    if (fullName !== undefined) { if (typeof fullName !== 'string' || !fullName.trim() || fullName.trim().length > 100) return res.status(400).json({ message: 'Enter a valid employee name.' }); employee.fullName = fullName.trim(); }
+    if (email !== undefined) { const value = String(email).trim().toLowerCase(); if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value) || value.length > 150) return res.status(400).json({ message: 'Enter a valid employee email address.' }); employee.email = value; }
+    if (phone !== undefined) employee.phone = String(phone).trim().slice(0, 30);
+    if (jobTitle !== undefined) employee.jobTitle = String(jobTitle).trim().slice(0, 100);
+    if (department !== undefined) employee.department = String(department).trim().slice(0, 100);
+    if (role !== undefined) { if (!EMPLOYEE_ROLES.includes(role)) return res.status(400).json({ message: 'Choose a valid employee role.' }); employee.role = role; }
+    if (active !== undefined) employee.active = Boolean(active);
+    if (password !== undefined && password !== '') { if (typeof password !== 'string' || password.length < 10 || password.length > 128) return res.status(400).json({ message: 'New passwords must be at least 10 characters long.' }); employee.passwordHash = passwordHash(password); }
+    await employee.save();
+    const safe = employee.toObject(); delete safe.passwordHash;
+    return res.json({ employee: safe });
+  } catch (error) {
+    if (error.code === 11000) return res.status(409).json({ message: 'An employee account already exists for that email address.' });
+    return next(error);
+  }
+});
+
+router.get('/stats', requireAuth, async (_req, res, next) => {
   try {
     const [total, newRequests, pendingQuotations, closedRequests, issuedQuotations] = await Promise.all([
       Quote.countDocuments({}), Quote.countDocuments({ status: 'new' }),
