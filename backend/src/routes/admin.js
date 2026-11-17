@@ -154,6 +154,7 @@ router.patch('/quotes/:id/quotation', requireAdmin, async (req, res, next) => {
       : (quote.quotation?.reference || 'BWQ-' + Date.now().toString(36).toUpperCase());
     const shouldSendEmail = status === 'issued' && (
       quote.quotation?.status !== 'issued' ||
+      quote.quotation?.emailStatus !== 'sent' ||
       quote.quotation?.reference !== quotationReference ||
       Number(quote.quotation?.amount) !== amount ||
       quote.quotation?.description !== description ||
