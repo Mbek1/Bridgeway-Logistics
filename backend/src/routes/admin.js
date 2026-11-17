@@ -89,7 +89,7 @@ router.get('/quotes', requireAdmin, async (req, res, next) => {
 
 router.patch('/quotes/:id', requireAdmin, async (req, res, next) => {
   try {
-    const quote = await Quote.findById(req.params.id);
+    const quote = await Quote.findById(req.params.id).select('+quotation.publicToken');
     if (!quote) return res.status(404).json({ message: 'Quote request not found.' });
     const events = [];
     if (req.body?.status !== undefined) {
