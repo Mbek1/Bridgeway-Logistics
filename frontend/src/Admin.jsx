@@ -286,7 +286,7 @@ export default function AdminDashboard() {
       setQuotes((items) => items.map((q) => q._id === selected._id ? data.quote : q));
       setQuotation((old) => ({ ...old, reference: data.quote.quotation?.reference || old.reference }));
       const mailStatus = data.email?.status;
-      setNotice(quotation.status === 'issued' ? (mailStatus === 'sent' ? 'Quotation issued and emailed to the customer.' : mailStatus === 'not_configured' ? 'Quotation issued, but email is not configured yet. Add the Resend settings in Render.' : mailStatus === 'no_email' ? 'Quotation issued, but this customer did not provide an email address.' : mailStatus === 'failed' ? 'Quotation issued, but the email could not be sent: ' + data.email.error : 'Quotation issued and request marked as quoted.') : 'Quotation draft saved.');
+      setNotice(quotation.status === 'issued' ? (mailStatus === 'sent' ? 'Quotation issued and emailed to the customer.' : mailStatus === 'not_configured' ? 'Quotation issued, but email is not configured yet. Add the Resend settings in Render.' : mailStatus === 'no_email' ? 'Quotation issued, but this customer did not provide an email address.' : mailStatus === 'failed' ? 'Quotation issued, but the email could not be sent: ' + data.email.error : 'Quotation issued and request marked as quoted.') : quotation.status === 'accepted' ? 'Quotation marked as accepted. Reports will include its value as accepted revenue.' : quotation.status === 'rejected' ? 'Quotation marked as rejected.' : 'Quotation draft saved.');
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
   }
@@ -389,12 +389,12 @@ export default function AdminDashboard() {
               </div>
               <section className="admin-quotation-editor">
                 <div className="admin-quotation-heading"><div><p className="admin-eyebrow">FORMAL QUOTATION</p><h3>Prepare customer quotation</h3></div><span className="admin-status">{selected.quotation?.status || 'not prepared'}</span></div>
-                <p className="admin-quotation-help">Create a priced quotation for this enquiry. Saving as a draft does not mark it as issued. Issuing it changes the request status to quoted.</p>
+                <p className="admin-quotation-help">Create and issue a priced quotation. Once the customer responds, mark it Accepted or Rejected so revenue and conversion reports reflect the outcome.</p>
                 <div className="admin-quotation-fields">
                   <label>Quotation reference<input value={quotation.reference} onChange={(e) => setQuotation({ ...quotation, reference: e.target.value })} placeholder="Auto-generated if left blank" maxLength="60" /></label>
                   <label>Amount (ZMW)<input type="number" min="0.01" step="0.01" value={quotation.amount} onChange={(e) => setQuotation({ ...quotation, amount: e.target.value })} placeholder="e.g. 12500.00" required /></label>
                   <label>Valid until<input type="date" value={quotation.validUntil} onChange={(e) => setQuotation({ ...quotation, validUntil: e.target.value })} required /></label>
-                  <label>Quotation status<select value={quotation.status} onChange={(e) => setQuotation({ ...quotation, status: e.target.value })}><option value="draft">Draft</option><option value="issued">Issued</option></select></label>
+                  <label>Quotation status<select value={quotation.status} onChange={(e) => setQuotation({ ...quotation, status: e.target.value })}><option value="draft">Draft</option><option value="issued">Issued</option><option value="accepted" disabled={!selected.quotation?.issuedAt && selected.quotation?.status !== "issued"}>Accepted</option><option value="rejected" disabled={!selected.quotation?.issuedAt && selected.quotation?.status !== "issued"}>Rejected</option></select></label>
                   <label className="admin-quotation-full">Description / services included<textarea rows="4" maxLength="3000" value={quotation.description} onChange={(e) => setQuotation({ ...quotation, description: e.target.value })} placeholder="Describe the transport, handling, route, or other services covered by this price." required /></label>
                   <label className="admin-quotation-full">Terms and conditions<textarea rows="3" maxLength="3000" value={quotation.terms} onChange={(e) => setQuotation({ ...quotation, terms: e.target.value })} placeholder="Payment terms, exclusions, conditions, and other important notes." /></label>
                 </div>
