@@ -432,15 +432,13 @@ h1 em, h2 em { color: var(--orange); font-style: normal; }
 }
 
 
-/* Blend the supplied JPG logo into the site instead of showing its white image canvas.
-   Multiply makes the white pixels disappear against the header/footer surfaces. */
+/* Transparent logo asset: no blend mode or image canvas is needed. */
 .brand-logo-image {
-  mix-blend-mode: multiply;
+  display: block;
   background: transparent;
   border: 0;
   box-shadow: none;
-  filter: saturate(1.04);
+  mix-blend-mode: normal;
+  filter: none;
 }
-.brand {
-  background: transparent;
-}
+.brand { background: transparent; }
