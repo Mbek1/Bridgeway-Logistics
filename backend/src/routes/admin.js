@@ -152,7 +152,7 @@ router.get('/reports', requireAuth, async (req, res, next) => {
   try {
     const from = String(req.query.from || '').trim();
     const to = String(req.query.to || '').trim();
-    const validDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(value + 'T00:00:00+02:00').getTime());
+    const validDate = (value) => { if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false; const [year, month, day] = value.split('-').map(Number); const check = new Date(Date.UTC(year, month - 1, day)); return check.getUTCFullYear() === year && check.getUTCMonth() === month - 1 && check.getUTCDate() === day; };
     if (!validDate(from) || !validDate(to)) return res.status(400).json({ message: 'Choose a valid start and end date.' });
     const start = new Date(from + 'T00:00:00+02:00');
     const end = new Date(to + 'T00:00:00+02:00');
