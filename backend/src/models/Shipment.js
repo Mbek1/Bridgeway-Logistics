@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 const shipmentSchema = new mongoose.Schema({
   trackingNumber: { type: String, required: true, unique: true, index: true },
   quote: { type: mongoose.Schema.Types.ObjectId, ref: 'Quote', default: null, index: true },
+  customer: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', default: null, index: true },
   enquiryReference: { type: String, trim: true, maxlength: 60, default: '' },
   customerName: { type: String, required: true, trim: true, maxlength: 100 },
   customerPhone: { type: String, trim: true, maxlength: 30, default: '' },
