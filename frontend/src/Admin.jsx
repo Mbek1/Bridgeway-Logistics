@@ -166,7 +166,7 @@ export default function AdminDashboard() {
     try {
       const data = await request('/admin/shipments/' + id, { method: 'PATCH', body: JSON.stringify(patch) });
       setShipments((items) => items.map((item) => item._id === id ? data.shipment : item));
-      setNotice('Shipment ' + data.shipment.trackingNumber + ' updated.');
+      setNotice('Shipment ' + data.shipment.trackingNumber + ' updated.' + (data.notification?.status === 'sent' ? ' Customer email sent.' : data.notification?.status === 'failed' ? ' Customer email failed: ' + data.notification.error : data.notification?.status === 'not_configured' ? ' Customer email is not configured in the backend.' : data.notification?.status === 'no_email' ? ' Customer has no email address on record.' : ''));
     } catch (e) { setError(e.message); }
     finally { setShipmentBusy(false); }
   }
@@ -271,7 +271,7 @@ export default function AdminDashboard() {
         method: 'PATCH', body: JSON.stringify({ status: nextStatus, internalNotes: notes }),
       });
       setQuotes((items) => items.map((q) => q._id === selected._id ? data.quote : q));
-      setNotice('Quote request updated.');
+      setNotice('Quote request updated.' + (data.notification?.status === 'sent' ? ' Customer email sent.' : data.notification?.status === 'failed' ? ' Customer email failed: ' + data.notification.error : data.notification?.status === 'not_configured' ? ' Customer email is not configured in the backend.' : data.notification?.status === 'no_email' ? ' Customer has no email address on record.' : ''));
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
   }
