@@ -282,16 +282,19 @@ router.get('/customers', requireAuth, requireRoles('admin', 'manager', 'operatio
   } catch (error) { return next(error); }
 });
 
-router.get('/customers/:id', requireAuth, requireRoles('admin', 'manager', 'sales', 'viewer'), async (req, res, next) => {
+router.get('/customers/:id', requireAuth, requireRoles('admin', 'manager', 'operations', 'sales', 'viewer'), async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid customer reference.' });
     const customer = await Customer.findById(req.params.id).lean();
     if (!customer) return res.status(404).json({ message: 'Customer not found.' });
-    const [enquiries, shipments] = await Promise.all([
+    const [enquiries, shipments, enquiryCount, shipmentCount, quotationsIssued] = await Promise.all([
       Quote.find({ customer: customer._id }).sort({ createdAt: -1 }).limit(100).select('reference service pickupLocation deliveryLocation status quotation createdAt').lean(),
       Shipment.find({ customer: customer._id }).sort({ createdAt: -1 }).limit(100).select('trackingNumber service origin destination status estimatedDelivery deliveredAt createdAt').lean(),
+      Quote.countDocuments({ customer: customer._id }),
+      Shipment.countDocuments({ customer: customer._id }),
+      Quote.countDocuments({ customer: customer._id, 'quotation.status': 'issued' }),
     ]);
-    return res.json({ customer, enquiries, shipments });
+    return res.json({ customer, enquiries, shipments, enquiryCount, shipmentCount, quotationsIssued });
   } catch (error) { return next(error); }
 });
 
