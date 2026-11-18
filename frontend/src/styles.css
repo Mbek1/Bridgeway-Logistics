@@ -442,3 +442,65 @@ h1 em, h2 em { color: var(--orange); font-style: normal; }
   filter: none;
 }
 .brand { background: transparent; }
+
+
+/* Admin enquiry pagination */
+.admin-pagination {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 14px;
+  border-top: 1px solid #e5eaf0;
+  background: #fff;
+}
+.admin-pagination-summary {
+  color: #64748b;
+  font-size: 12px;
+}
+.admin-pagination-summary b { color: #172b43; }
+.admin-pagination-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.admin-page-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-right: auto;
+  color: #64748b;
+  font-size: 12px;
+}
+.admin-page-size select {
+  min-height: 34px;
+  padding: 0 25px 0 9px;
+  border: 1px solid #d8e0e8;
+  border-radius: 5px;
+  background: #fff;
+  color: #172b43;
+}
+.admin-page-button {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid #d8e0e8;
+  border-radius: 5px;
+  background: #fff;
+  color: #24384e;
+  font-size: 12px;
+  cursor: pointer;
+}
+.admin-page-button:hover:not(:disabled) { border-color: #f28b32; color: #b95c0a; }
+.admin-page-button.is-active {
+  border-color: #0b1b2b;
+  background: #0b1b2b;
+  color: #fff;
+}
+.admin-page-button:disabled { opacity: .4; cursor: not-allowed; }
+.admin-page-ellipsis { padding: 0 3px; color: #94a3b8; }
+@media (max-width: 520px) {
+  .admin-pagination-controls { gap: 5px; }
+  .admin-page-size { width: 100%; margin: 0 0 5px; }
+  .admin-page-button { min-width: 31px; min-height: 32px; padding: 0 7px; }
+}
