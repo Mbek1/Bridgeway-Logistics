@@ -157,7 +157,7 @@ router.get('/quotes', requireAuth, async (req, res, next) => {
     const search = String(req.query.search || '').trim();
     if (['new', 'contacted', 'quoted', 'closed'].includes(status)) filter.status = status;
     if (search) {
-      const safe = search.replace(/[.*+?^()|[\]\\]/g, '\\$&');
+      const safe = search.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&');
       filter.$or = ['fullName', 'email', 'phone', 'reference', 'service', 'pickupLocation', 'deliveryLocation']
         .map((field) => ({ [field]: { $regex: safe, $options: 'i' } }));
     }
@@ -247,7 +247,7 @@ router.patch('/quotes/:id/quotation', requireAuth, requireRoles('admin', 'manage
 
 
 
-router.get('/customers', requireAuth, requireRoles('admin', 'manager', 'sales', 'viewer'), async (req, res, next) => {
+router.get('/customers', requireAuth, requireRoles('admin', 'manager', 'operations', 'sales', 'viewer'), async (req, res, next) => {
   try {
     // Attach older enquiries and shipments to customer records the first time the directory is opened.
     const [unlinkedQuotes, unlinkedShipments] = await Promise.all([
@@ -267,7 +267,7 @@ router.get('/customers', requireAuth, requireRoles('admin', 'manager', 'sales', 
     const search = String(req.query.search || '').trim();
     const filter = {};
     if (search) {
-      const safe = search.replace(/[.*+?^()|[\\]\\\\]/g, '\\const SHIPMENT_STATUSES =');
+      const safe = search.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&');
       filter.$or = ['fullName', 'email', 'phone'].map((field) => ({ [field]: { $regex: safe, $options: 'i' } }));
     }
     const customers = await Customer.find(filter).sort({ lastInteractionAt: -1, fullName: 1 }).limit(500).lean();
