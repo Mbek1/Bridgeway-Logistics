@@ -467,9 +467,9 @@ export default function AdminDashboard() {
                 <div className="admin-detail-grid">
                   <div><small>Phone</small><b>{customerDetail.customer.phone ? <a href={'tel:'+customerDetail.customer.phone}>{customerDetail.customer.phone}</a> : 'Not provided'}</b></div>
                   <div><small>Email</small><b>{customerDetail.customer.email ? <a href={'mailto:'+customerDetail.customer.email}>{customerDetail.customer.email}</a> : 'Not provided'}</b></div>
-                  <div><small>Total enquiries</small><b>{customerDetail.enquiries.length}</b></div>
-                  <div><small>Total shipments</small><b>{customerDetail.shipments.length}</b></div>
-                  <div><small>Quotations issued</small><b>{customerDetail.enquiries.filter((item)=>item.quotation?.status==='issued').length}</b></div>
+                  <div><small>Total enquiries</small><b>{customerDetail.enquiryCount ?? customerDetail.enquiries.length}</b></div>
+                  <div><small>Total shipments</small><b>{customerDetail.shipmentCount ?? customerDetail.shipments.length}</b></div>
+                  <div><small>Quotations issued</small><b>{customerDetail.quotationsIssued ?? customerDetail.enquiries.filter((item)=>item.quotation?.status==='issued').length}</b></div>
                   <div><small>Last interaction</small><b>{dateText(customerDetail.customer.lastInteractionAt)}</b></div>
                 </div>
                 <div className="admin-customer-history">
