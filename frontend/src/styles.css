@@ -584,3 +584,30 @@ h1 em, h2 em { color: var(--orange); font-style: normal; }
 .admin-customer-history-item p{margin:7px 0;color:#526673;font-size:11px;line-height:1.5}
 .admin-customer-history-item>small{font-size:10px;color:#87949d}
 @media(max-width:800px){.admin-customer-workspace{grid-template-columns:1fr}.admin-customer-workspace>.admin-list-panel{max-height:420px;overflow:auto}}
+
+
+/* Advanced business reporting workspace */
+.admin-report-page{min-width:0}
+.admin-report-filters{display:flex;align-items:end;gap:12px;flex-wrap:wrap;padding:18px 20px;margin:0 0 18px;background:#fff;border:1px solid #e4e9ec}
+.admin-report-filters label{display:flex;flex-direction:column;gap:6px;min-width:150px;color:#405464;font-size:11px;font-weight:700}
+.admin-report-filters input{min-height:39px;padding:9px 10px;border:1px solid #dce3e7;background:#fbfcfc;color:#203849;font:inherit;font-size:12px}
+.admin-report-filters .admin-primary-button,.admin-report-filters .admin-secondary-button{width:auto;min-width:130px;margin:0}
+.admin-report-metrics .admin-stat-card strong{font-size:23px;overflow-wrap:anywhere}
+.admin-report-table-wrap{width:100%;overflow-x:auto}
+.admin-report-table{width:100%;border-collapse:collapse;min-width:420px}
+.admin-report-table th,.admin-report-table td{padding:12px 13px;text-align:left;border-bottom:1px solid #edf0f2;color:#405464;font-size:11px;white-space:nowrap}
+.admin-report-table th{color:#87949d;font-size:9px;letter-spacing:.08em;text-transform:uppercase;background:#fafbfb}
+.admin-report-table td b{display:block;color:#193449}
+.admin-report-table td small{display:block;margin-top:4px;color:#87949d;font-size:9px}
+.admin-report-two-column{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+.admin-report-two-column .admin-report-section{min-width:0}
+@media(max-width:850px){.admin-report-two-column{grid-template-columns:1fr}}
+@media(max-width:560px){.admin-report-filters{align-items:stretch;padding:14px}.admin-report-filters label,.admin-report-filters .admin-primary-button,.admin-report-filters .admin-secondary-button{width:100%}}
+@media print{
+  .admin-header,.admin-report-filters,.admin-alert,.admin-quotation-help{display:none!important}
+  .admin-report-page{padding:0!important}
+  .admin-report-section,.admin-stat-card{break-inside:avoid;box-shadow:none!important}
+  .admin-report-two-column{grid-template-columns:1fr 1fr}
+  .admin-report-table{min-width:0}
+  .admin-report-table th,.admin-report-table td{font-size:8pt;padding:7px}
+}
