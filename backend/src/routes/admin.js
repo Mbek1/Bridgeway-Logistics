@@ -147,6 +147,58 @@ router.get('/stats', requireAuth, async (_req, res, next) => {
   } catch (error) { return next(error); }
 });
 
+
+router.get('/reports', requireAuth, async (req, res, next) => {
+  try {
+    const from = String(req.query.from || '').trim();
+    const to = String(req.query.to || '').trim();
+    const validDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(value + 'T00:00:00+02:00').getTime());
+    if (!validDate(from) || !validDate(to)) return res.status(400).json({ message: 'Choose a valid start and end date.' });
+    const start = new Date(from + 'T00:00:00+02:00');
+    const end = new Date(to + 'T00:00:00+02:00');
+    end.setDate(end.getDate() + 1);
+    if (start >= end || end.getTime() - start.getTime() > 366 * 24 * 60 * 60 * 1000) return res.status(400).json({ message: 'Choose a date range of up to 12 months.' });
+    const quoteMatch = { createdAt: { $gte: start, $lt: end } };
+    const shipmentMatch = { createdAt: { $gte: start, $lt: end } };
+    const [quoteSummaryRows, monthly, topCustomers, shipmentStatuses, deliveryRows] = await Promise.all([
+      Quote.aggregate([
+        { $match: quoteMatch },
+        { $group: { _id: null, enquiries: { $sum: 1 }, issued: { $sum: { $cond: [{ $in: ['$quotation.status', ['issued', 'accepted', 'rejected']] }, 1, 0] } }, accepted: { $sum: { $cond: [{ $eq: ['$quotation.status', 'accepted'] }, 1, 0] } }, rejected: { $sum: { $cond: [{ $eq: ['$quotation.status', 'rejected'] }, 1, 0] } }, revenue: { $sum: { $cond: [{ $eq: ['$quotation.status', 'accepted'] }, '$quotation.amount', 0] } } } },
+      ]),
+      Quote.aggregate([
+        { $match: quoteMatch },
+        { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$createdAt', timezone: 'Africa/Lusaka' } }, enquiries: { $sum: 1 }, issued: { $sum: { $cond: [{ $in: ['$quotation.status', ['issued', 'accepted', 'rejected']] }, 1, 0] } }, accepted: { $sum: { $cond: [{ $eq: ['$quotation.status', 'accepted'] }, 1, 0] } }, revenue: { $sum: { $cond: [{ $eq: ['$quotation.status', 'accepted'] }, '$quotation.amount', 0] } } } },
+        { $sort: { _id: 1 } },
+      ]),
+      Quote.aggregate([
+        { $match: { ...quoteMatch, 'quotation.status': 'accepted' } },
+        { $group: { _id: { $ifNull: ['$customer', '$email'] }, name: { $first: '$fullName' }, email: { $first: '$email' }, acceptedQuotes: { $sum: 1 }, revenue: { $sum: '$quotation.amount' } } },
+        { $sort: { revenue: -1 } }, { $limit: 10 },
+      ]),
+      Shipment.aggregate([{ $match: shipmentMatch }, { $group: { _id: '$status', count: { $sum: 1 } } }, { $sort: { count: -1 } }]),
+      Shipment.aggregate([
+        { $match: { ...shipmentMatch, status: 'delivered' } },
+        { $group: { _id: null, delivered: { $sum: 1 }, onTime: { $sum: { $cond: [{ $and: [{ $ne: ['$estimatedDelivery', null] }, { $lte: ['$deliveredAt', '$estimatedDelivery'] }] }, 1, 0] } } },
+      ]),
+    ]);
+    const summary = quoteSummaryRows[0] || { enquiries: 0, issued: 0, accepted: 0, rejected: 0, revenue: 0 };
+    const shipmentTotal = shipmentStatuses.reduce((sum, item) => sum + item.count, 0);
+    const delivered = deliveryRows[0]?.delivered || 0;
+    const onTime = deliveryRows[0]?.onTime || 0;
+    return res.json({
+      from, to,
+      summary: {
+        enquiries: summary.enquiries || 0, issued: summary.issued || 0, accepted: summary.accepted || 0,
+        rejected: summary.rejected || 0, acceptedRevenue: summary.revenue || 0,
+        conversionRate: summary.issued ? Math.round(summary.accepted / summary.issued * 100) : 0,
+        shipmentTotal, delivered, onTimeDeliveries: onTime,
+        onTimeRate: delivered ? Math.round(onTime / delivered * 100) : 0,
+      },
+      monthly, topCustomers, shipmentStatuses,
+    });
+  } catch (error) { return next(error); }
+});
+
 router.get('/quotes', requireAuth, async (req, res, next) => {
   try {
     const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 10, 1), 100);
