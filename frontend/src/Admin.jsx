@@ -4,6 +4,7 @@ import { ArrowLeft, LogOut, RefreshCw, Search, Truck } from 'lucide-react';
 const API = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
 const STATUSES = ['new', 'contacted', 'quoted', 'closed'];
 const dateText = (value) => value ? new Date(value).toLocaleString() : '—';
+const dateInputText = (date) => date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
 
 export default function AdminDashboard() {
   const [token, setToken] = useState(() => sessionStorage.getItem('bridgeway_admin_token') || '');
@@ -17,8 +18,8 @@ export default function AdminDashboard() {
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerDetail, setCustomerDetail] = useState(null);
   const [customerBusy, setCustomerBusy] = useState(false);
-  const [reportFrom, setReportFrom] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 5, 1); return d.toISOString().slice(0, 10); });
-  const [reportTo, setReportTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [reportFrom, setReportFrom] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 5, 1); return dateInputText(d); });
+  const [reportTo, setReportTo] = useState(() => dateInputText(new Date()));
   const [reportData, setReportData] = useState(null);
   const [reportBusy, setReportBusy] = useState(false);
   const [shipmentDrivers, setShipmentDrivers] = useState([]);
@@ -501,7 +502,7 @@ export default function AdminDashboard() {
           <div className="admin-title-row"><div><p className="admin-eyebrow">BUSINESS INTELLIGENCE</p><h1>Performance reports</h1><p className="admin-muted">Review accepted quotation revenue, sales conversion, customer value and delivery performance.</p></div><span className="admin-count">{reportData ? reportData.from + ' – ' + reportData.to : 'Select a period'}</span></div>
           <form className="admin-report-filters" onSubmit={(event) => { event.preventDefault(); loadReports(); }}>
             <label>From<input type="date" value={reportFrom} max={reportTo} onChange={(e) => setReportFrom(e.target.value)} required /></label>
-            <label>To<input type="date" value={reportTo} min={reportFrom} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setReportTo(e.target.value)} required /></label>
+            <label>To<input type="date" value={reportTo} min={reportFrom} max={dateInputText(new Date())} onChange={(e) => setReportTo(e.target.value)} required /></label>
             <button className="admin-primary-button" disabled={reportBusy}>{reportBusy ? 'Generating…' : 'Apply dates'}</button>
             <button type="button" className="admin-secondary-button" onClick={exportReportsCsv} disabled={!reportData || reportBusy}>Export Excel-compatible CSV</button>
             <button type="button" className="admin-secondary-button" onClick={() => window.print()} disabled={!reportData || reportBusy}>Print / Save PDF</button>
