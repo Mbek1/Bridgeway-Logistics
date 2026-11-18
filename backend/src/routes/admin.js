@@ -142,7 +142,9 @@ router.get('/stats', requireAuth, async (_req, res, next) => {
 
 router.get('/quotes', requireAuth, async (req, res, next) => {
   try {
-    const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 100, 1), 200);
+    const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 10, 1), 100);
+    const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
+    const skip = (page - 1) * limit;
     const filter = {};
     const status = String(req.query.status || '');
     const search = String(req.query.search || '').trim();
@@ -153,10 +155,11 @@ router.get('/quotes', requireAuth, async (req, res, next) => {
         .map((field) => ({ [field]: { $regex: safe, $options: 'i' } }));
     }
     const [quotes, total] = await Promise.all([
-      Quote.find(filter).sort({ createdAt: -1 }).limit(limit).select('-__v +quotation.publicToken').lean(),
+      Quote.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).select('-__v +quotation.publicToken').lean(),
       Quote.countDocuments(filter),
     ]);
-    return res.json({ total, count: quotes.length, quotes });
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    return res.json({ total, count: quotes.length, page, limit, totalPages, quotes });
   } catch (error) { return next(error); }
 });
 
