@@ -82,7 +82,7 @@ router.get('/quotation/:token', async (req, res, next) => {
   try {
     const token = String(req.params.token || '');
     if (!/^[a-f0-9]{64}$/.test(token)) return res.status(404).json({ message: 'This quotation link is invalid or unavailable.' });
-    const quote = await Quote.findOne({ 'quotation.publicToken': token, 'quotation.status': 'issued' });
+    const quote = await Quote.findOne({ 'quotation.publicToken': token, 'quotation.status': { $in: ['issued', 'accepted', 'rejected'] } });
     const expiry = quote?.quotation?.validUntil ? new Date(quote.quotation.validUntil) : null;
     if (expiry) expiry.setHours(23, 59, 59, 999);
     if (!quote || !quote.quotation || !expiry || expiry < new Date()) return res.status(404).json({ message: 'This quotation link is unavailable or has expired. Please contact Bridgeway Logistics.' });
