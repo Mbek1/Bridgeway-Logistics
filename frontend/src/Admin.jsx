@@ -113,6 +113,7 @@ export default function AdminDashboard() {
       ['Quotation conversion rate (%)', reportData.summary.conversionRate],
       ['Shipments', reportData.summary.shipmentTotal],
       ['Delivered shipments', reportData.summary.delivered],
+      ['Deliveries with estimates', reportData.summary.eligibleDeliveries],
       ['On-time deliveries', reportData.summary.onTimeDeliveries],
       ['On-time delivery rate (%)', reportData.summary.onTimeRate],
       [],
@@ -529,10 +530,10 @@ export default function AdminDashboard() {
               <section className="admin-report-section">
                 <div className="admin-quotation-heading"><div><p className="admin-eyebrow">DELIVERY OPERATIONS</p><h3>Shipment status breakdown</h3></div></div>
                 {reportData.shipmentStatuses.length ? <div className="admin-report-table-wrap"><table className="admin-report-table"><thead><tr><th>Status</th><th>Shipments</th></tr></thead><tbody>{reportData.shipmentStatuses.map((item) => <tr key={item._id}><td>{String(item._id).replaceAll('_', ' ')}</td><td>{item.count}</td></tr>)}</tbody></table></div> : <p className="admin-empty">No shipments were created in this period.</p>}
-                <p className="admin-quotation-help">{reportData.summary.onTimeDeliveries} of {reportData.summary.delivered} delivered shipments with recorded delivery estimates were delivered on or before the estimated date.</p>
+                <p className="admin-quotation-help">{reportData.summary.onTimeDeliveries} of {reportData.summary.eligibleDeliveries} delivered shipments with an estimated delivery date were delivered on or before that date.</p>
               </section>
             </div>
-            <p className="admin-quotation-help">Revenue counts quotations explicitly marked Accepted; it is not a record of cash received. Delivery-rate calculations exclude delivered shipments without an estimated delivery date.</p>
+            <p className="admin-quotation-help">The date filter groups enquiries and their quotation outcomes by enquiry submission date; shipment figures are grouped by shipment registration date. Accepted quotation revenue is not a record of cash received. Delivery-rate calculations exclude delivered shipments without an estimated delivery date.</p>
           </>}
         </section>}
         {activeSection === 'customers' && <section className="admin-customers-section">
