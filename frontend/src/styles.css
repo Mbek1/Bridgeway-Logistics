@@ -515,3 +515,52 @@ h1 em, h2 em { color: var(--orange); font-style: normal; }
 .admin-employees-section {
   margin-top: 0;
 }
+
+
+/* Shipment operations workspace */
+.admin-shipment-list{margin-top:22px;background:#fff;border:1px solid #e4e9ec}
+.admin-shipment-list>.admin-panel-heading{padding:20px}
+.shipment-create-form{margin-top:0}
+.shipment-create-form>.admin-primary-button{width:auto;min-width:190px;margin-top:20px}
+.admin-shipment-card{padding:20px 22px;border-top:1px solid #edf0f2}
+.admin-shipment-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.admin-shipment-top>div{display:flex;flex-direction:column;gap:6px;min-width:0}
+.admin-shipment-top b{font-size:14px;color:#142f43;letter-spacing:.04em}
+.admin-shipment-top small{font-size:11px;color:#71808a}
+.admin-shipment-route{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;padding:18px 0}
+.admin-shipment-route>div{display:flex;flex-direction:column;gap:5px;min-width:0}
+.admin-shipment-route small{font-size:9px;letter-spacing:.1em;color:#87949d;font-weight:800}
+.admin-shipment-route b{font-size:12px;color:#294354;overflow-wrap:anywhere}
+.admin-shipment-route>span{color:#e78a3d;font-size:20px}
+.admin-shipment-meta{display:flex;gap:10px 20px;flex-wrap:wrap;padding:12px 0;border-top:1px solid #edf0f2;border-bottom:1px solid #edf0f2;color:#7b8992;font-size:10px}
+.admin-shipment-meta b{color:#405464}
+.admin-shipment-edit{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px;padding:15px 0}
+.admin-shipment-edit label,.public-tracking-form label{display:flex;flex-direction:column;gap:7px;margin:0 0 12px;color:#405464;font-size:11px;font-weight:700}
+.admin-shipment-edit input,.admin-shipment-edit select,.public-tracking-form input{width:100%;min-width:0;padding:10px;border:1px solid #dce3e7;background:#fbfcfc;color:#203849;font:inherit;font-size:12px}
+.admin-shipment-actions{display:flex;gap:9px;flex-wrap:wrap}
+.admin-shipment-actions .admin-primary-button{width:auto;margin:0}
+.admin-shipment-actions .admin-secondary-button{background:#eaf0f2;color:#203849}
+.admin-shipment-delivered{padding:10px 12px;background:#eaf6ef;color:#246b47;font-size:11px}
+.admin-shipment-history{margin-top:14px;padding:12px;background:#f7f9fa}
+.admin-shipment-history summary{cursor:pointer;color:#405464;font-size:11px;font-weight:700}
+.admin-shipment-history>div{padding:12px 0;border-bottom:1px solid #e6ecef}
+.admin-shipment-history b{display:block;color:#294354;font-size:11px;text-transform:capitalize}
+.admin-shipment-history small{display:block;color:#87949d;font-size:10px;margin-top:4px}
+.admin-shipment-history p{font-size:11px;color:#586b78;margin:6px 0 0}
+.public-tracking-card>header a{font-size:11px;color:#b9611e;font-weight:700}
+.public-tracking-form{display:grid;grid-template-columns:1fr auto;align-items:end;gap:12px;margin:24px 0}
+.public-tracking-form .admin-primary-button{width:auto;margin:0}
+.public-tracking-result{margin-top:26px}
+.public-tracking-status{display:flex;flex-direction:column;gap:8px;padding:20px;background:#10283b;color:#fff}
+.public-tracking-status small{font-size:9px;letter-spacing:.12em;color:#b7c4cc}
+.public-tracking-status strong{font-size:22px;color:#f6a25e;text-transform:capitalize}
+.public-tracking-status span{font-size:11px;color:#d4dde2}
+.public-tracking-result h2{font-size:16px;margin:25px 0 12px}
+.public-tracking-timeline{border-left:2px solid #e4e9ec;margin:15px 0 25px 8px;padding-left:20px}
+.public-tracking-timeline article{position:relative;display:flex;gap:12px;padding:0 0 20px}
+.public-tracking-timeline article>span{position:absolute;left:-27px;top:3px;width:10px;height:10px;border-radius:50%;background:#f28a35;border:2px solid #fff;box-shadow:0 0 0 1px #f28a35}
+.public-tracking-timeline article>div{display:flex;flex-direction:column;gap:5px}
+.public-tracking-timeline b{font-size:12px;color:#294354;text-transform:capitalize}
+.public-tracking-timeline small{font-size:10px;color:#87949d}
+.public-tracking-timeline p{margin:0;color:#586b78;font-size:11px}
+@media(max-width:600px){.admin-shipment-edit{grid-template-columns:1fr}.admin-shipment-route{gap:8px}.admin-shipment-card{padding:16px 13px}.public-tracking-form{grid-template-columns:1fr}.public-tracking-form .admin-primary-button{width:100%}}
