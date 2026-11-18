@@ -12,6 +12,11 @@ export default function AdminDashboard() {
   const [activeSection, setActiveSection] = useState('enquiries');
   const [shipments, setShipments] = useState([]);
   const [activityEvents, setActivityEvents] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [customerDetail, setCustomerDetail] = useState(null);
+  const [customerBusy, setCustomerBusy] = useState(false);
   const [shipmentDrivers, setShipmentDrivers] = useState([]);
   const [shipmentEnquiries, setShipmentEnquiries] = useState([]);
   const [shipmentForm, setShipmentForm] = useState({ quoteId: '', customerName: '', customerPhone: '', customerEmail: '', service: '', origin: '', destination: '', cargoDescription: '', quantity: '', driverId: '', vehicle: '', estimatedDelivery: '' });
@@ -55,6 +60,30 @@ export default function AdminDashboard() {
       throw new Error(data.message || 'Request failed.');
     }
     return data;
+  }
+
+  async function loadCustomers(searchTerm = customerSearch) {
+    setCustomerBusy(true); setError('');
+    try {
+      const params = new URLSearchParams();
+      if (searchTerm.trim()) params.set('search', searchTerm.trim());
+      const data = await request('/admin/customers' + (params.toString() ? '?' + params.toString() : ''));
+      setCustomers(data.customers || []);
+      const nextId = (data.customers || []).some((item) => item._id === selectedCustomerId) ? selectedCustomerId : (data.customers?.[0]?._id || '');
+      setSelectedCustomerId(nextId);
+      if (nextId) await loadCustomerDetail(nextId);
+      else setCustomerDetail(null);
+    } catch (e) { setError(e.message); }
+    finally { setCustomerBusy(false); }
+  }
+
+  async function loadCustomerDetail(id) {
+    if (!id) { setCustomerDetail(null); return; }
+    try {
+      const data = await request('/admin/customers/' + id);
+      setCustomerDetail(data);
+      setSelectedCustomerId(id);
+    } catch (e) { setError(e.message); }
   }
 
   async function loadActivity() {
@@ -140,7 +169,7 @@ export default function AdminDashboard() {
     finally { setBusy(false); }
   }
 
-  useEffect(() => { if (token) { if (activeSection === 'enquiries') loadQuotes(); if (activeSection === 'employees' && role === 'admin') loadEmployees(); if (activeSection === 'shipments') loadShipments(); if (activeSection === 'activity' && role === 'admin') loadActivity(); } }, [token, role, page, pageSize, activeSection]);
+  useEffect(() => { if (token) { if (activeSection === 'enquiries') loadQuotes(); if (activeSection === 'employees' && role === 'admin') loadEmployees(); if (activeSection === 'shipments') loadShipments(); if (activeSection === 'activity' && role === 'admin') loadActivity(); if (activeSection === 'customers') loadCustomers(); } }, [token, role, page, pageSize, activeSection]);
   useEffect(() => {
     if (selected) {
       setNotes(selected.internalNotes || '');
@@ -240,7 +269,7 @@ export default function AdminDashboard() {
     <main className="admin-page">
       <header className="admin-header"><div className="admin-header-inner">
         <a className="admin-wordmark" href="/#home"><Truck size={22} /> BRIDGEWAY <span>ADMIN</span></a>
-        <div className="admin-header-actions"><span>{displayName} · {role}</span><button onClick={activeSection === 'employees' ? loadEmployees : activeSection === 'shipments' ? loadShipments : activeSection === 'activity' ? loadActivity : loadQuotes} disabled={busy || employeeBusy} aria-label="Refresh current section"><RefreshCw size={16} /></button><button className={activeSection === 'enquiries' ? 'is-active' : ''} onClick={() => { setActiveSection('enquiries'); setError(''); setNotice(''); }}>Enquiries</button><button className={activeSection === 'shipments' ? 'is-active' : ''} onClick={() => { setActiveSection('shipments'); setError(''); setNotice(''); }}>Shipments</button>{role === 'admin' && <><button className={activeSection === 'employees' ? 'is-active' : ''} onClick={() => { setActiveSection('employees'); setError(''); setNotice(''); }}>Employees</button><button className={activeSection === 'activity' ? 'is-active' : ''} onClick={() => { setActiveSection('activity'); setError(''); setNotice(''); }}>Activity Log</button></>}<button onClick={signOut}><LogOut size={16} /> Sign out</button></div>
+        <div className="admin-header-actions"><span>{displayName} · {role}</span><button onClick={activeSection === 'employees' ? loadEmployees : activeSection === 'shipments' ? loadShipments : activeSection === 'activity' ? loadActivity : activeSection === 'customers' ? loadCustomers : loadQuotes} disabled={busy || employeeBusy} aria-label="Refresh current section"><RefreshCw size={16} /></button><button className={activeSection === 'enquiries' ? 'is-active' : ''} onClick={() => { setActiveSection('enquiries'); setError(''); setNotice(''); }}>Enquiries</button><button className={activeSection === 'shipments' ? 'is-active' : ''} onClick={() => { setActiveSection('shipments'); setError(''); setNotice(''); }}>Shipments</button><button className={activeSection === 'customers' ? 'is-active' : ''} onClick={() => { setActiveSection('customers'); setError(''); setNotice(''); }}>Customers</button>{role === 'admin' && <><button className={activeSection === 'employees' ? 'is-active' : ''} onClick={() => { setActiveSection('employees'); setError(''); setNotice(''); }}>Employees</button><button className={activeSection === 'activity' ? 'is-active' : ''} onClick={() => { setActiveSection('activity'); setError(''); setNotice(''); }}>Activity Log</button></>}<button onClick={signOut}><LogOut size={16} /> Sign out</button></div>
       </div></header>
       <section className="admin-content">
         {activeSection === 'enquiries' && <>
@@ -417,6 +446,44 @@ export default function AdminDashboard() {
             }) : <p className="admin-empty">No shipments have been registered yet.</p>}
           </section>
         </>}
+        {activeSection === 'customers' && <section className="admin-customers-section">
+          <div className="admin-title-row"><div><p className="admin-eyebrow">CUSTOMER RELATIONSHIPS</p><h1>Customer directory</h1><p className="admin-muted">One place to find customer contacts, enquiries, quotations and shipments.</p></div><span className="admin-count">{customers.length} customer(s)</span></div>
+          {error && <div className="admin-alert admin-alert-error">{error}</div>}
+          <div className="admin-toolbar">
+            <label className="admin-search"><Search size={17}/><input value={customerSearch} onChange={(e)=>setCustomerSearch(e.target.value)} onKeyDown={(e)=>e.key==='Enter'&&loadCustomers(customerSearch)} placeholder="Search customer name, email or phone…"/></label>
+            <button className="admin-secondary-button" onClick={()=>loadCustomers(customerSearch)} disabled={customerBusy}>Search</button>
+          </div>
+          <div className="admin-customer-workspace">
+            <section className="admin-list-panel">
+              <div className="admin-panel-heading"><h2>Customers</h2><span>{customers.length}</span></div>
+              {customerBusy && !customers.length ? <p className="admin-empty">Loading customer directory…</p> : customers.length ? customers.map((customer)=><button type="button" key={customer._id} className={'admin-customer-row '+(selectedCustomerId===customer._id?'is-selected':'')} onClick={()=>loadCustomerDetail(customer._id)}>
+                <span><b>{customer.fullName}</b><small>{customer.email || 'No email'} · {customer.phone || 'No phone'}</small></span>
+                <span className="admin-customer-counts"><small>{customer.enquiries || 0} enquiries</small><small>{customer.shipments || 0} shipments</small></span>
+              </button>) : <p className="admin-empty">No customers found. Customers are added automatically when an enquiry or shipment is recorded.</p>}
+            </section>
+            <section className="admin-detail-panel">
+              {customerDetail ? <>
+                <div className="admin-panel-heading"><div><p className="admin-eyebrow">CUSTOMER PROFILE</p><h2>{customerDetail.customer.fullName}</h2></div><span className="admin-count">Customer since {new Date(customerDetail.customer.createdAt).toLocaleDateString()}</span></div>
+                <div className="admin-detail-grid">
+                  <div><small>Phone</small><b>{customerDetail.customer.phone ? <a href={'tel:'+customerDetail.customer.phone}>{customerDetail.customer.phone}</a> : 'Not provided'}</b></div>
+                  <div><small>Email</small><b>{customerDetail.customer.email ? <a href={'mailto:'+customerDetail.customer.email}>{customerDetail.customer.email}</a> : 'Not provided'}</b></div>
+                  <div><small>Total enquiries</small><b>{customerDetail.enquiries.length}</b></div>
+                  <div><small>Total shipments</small><b>{customerDetail.shipments.length}</b></div>
+                  <div><small>Quotations issued</small><b>{customerDetail.enquiries.filter((item)=>item.quotation?.status==='issued').length}</b></div>
+                  <div><small>Last interaction</small><b>{dateText(customerDetail.customer.lastInteractionAt)}</b></div>
+                </div>
+                <div className="admin-customer-history">
+                  <div className="admin-panel-heading"><h2>Enquiry & quotation history</h2><span>{customerDetail.enquiries.length}</span></div>
+                  {customerDetail.enquiries.length ? customerDetail.enquiries.map((item)=><article key={item._id} className="admin-customer-history-item"><div><b>{item.reference}</b><span className={'admin-status status-'+item.status}>{item.status}</span></div><p>{item.service} · {item.pickupLocation} → {item.deliveryLocation}</p><small>{dateText(item.createdAt)}{item.quotation?.reference ? ' · Quotation '+item.quotation.reference+' ('+item.quotation.status+')' : ''}</small></article>) : <p className="admin-empty">No enquiries recorded.</p>}
+                </div>
+                <div className="admin-customer-history">
+                  <div className="admin-panel-heading"><h2>Shipment history</h2><span>{customerDetail.shipments.length}</span></div>
+                  {customerDetail.shipments.length ? customerDetail.shipments.map((item)=><article key={item._id} className="admin-customer-history-item"><div><b>{item.trackingNumber}</b><span className="admin-status">{String(item.status).replaceAll('_',' ')}</span></div><p>{item.service || 'Logistics service'} · {item.origin} → {item.destination}</p><small>{dateText(item.createdAt)}{item.deliveredAt ? ' · Delivered '+dateText(item.deliveredAt) : ''}</small></article>) : <p className="admin-empty">No shipments recorded.</p>}
+                </div>
+              </> : <p className="admin-empty">Select a customer to view their profile and history.</p>}
+            </section>
+          </div>
+        </section>}
         {activeSection === 'activity' && role === 'admin' && <section className="admin-history-section">
           <div className="admin-title-row"><div><p className="admin-eyebrow">ACCOUNTABILITY & AUDIT</p><h1>Employee activity</h1><p className="admin-muted">Review who performed important actions across enquiries, quotations, shipments and staff accounts.</p></div><span className="admin-count">{activityEvents.length} event(s)</span></div>
           {error && <div className="admin-alert admin-alert-error">{error}</div>}
