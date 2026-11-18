@@ -11,6 +11,7 @@ export default function AdminDashboard() {
   const [displayName, setDisplayName] = useState(() => sessionStorage.getItem('bridgeway_admin_name') || 'Administrator');
   const [activeSection, setActiveSection] = useState('enquiries');
   const [shipments, setShipments] = useState([]);
+  const [activityEvents, setActivityEvents] = useState([]);
   const [shipmentDrivers, setShipmentDrivers] = useState([]);
   const [shipmentEnquiries, setShipmentEnquiries] = useState([]);
   const [shipmentForm, setShipmentForm] = useState({ quoteId: '', customerName: '', customerPhone: '', customerEmail: '', service: '', origin: '', destination: '', cargoDescription: '', quantity: '', driverId: '', vehicle: '', estimatedDelivery: '' });
@@ -54,6 +55,11 @@ export default function AdminDashboard() {
       throw new Error(data.message || 'Request failed.');
     }
     return data;
+  }
+
+  async function loadActivity() {
+    try { const data = await request('/admin/activity?limit=200'); setActivityEvents(data.events || []); }
+    catch (e) { setError(e.message); }
   }
 
   async function loadShipments() {
@@ -134,7 +140,7 @@ export default function AdminDashboard() {
     finally { setBusy(false); }
   }
 
-  useEffect(() => { if (token) { if (activeSection === 'enquiries') loadQuotes(); if (activeSection === 'employees' && role === 'admin') loadEmployees(); if (activeSection === 'shipments') loadShipments(); } }, [token, role, page, pageSize, activeSection]);
+  useEffect(() => { if (token) { if (activeSection === 'enquiries') loadQuotes(); if (activeSection === 'employees' && role === 'admin') loadEmployees(); if (activeSection === 'shipments') loadShipments(); if (activeSection === 'activity' && role === 'admin') loadActivity(); } }, [token, role, page, pageSize, activeSection]);
   useEffect(() => {
     if (selected) {
       setNotes(selected.internalNotes || '');
@@ -234,7 +240,7 @@ export default function AdminDashboard() {
     <main className="admin-page">
       <header className="admin-header"><div className="admin-header-inner">
         <a className="admin-wordmark" href="/#home"><Truck size={22} /> BRIDGEWAY <span>ADMIN</span></a>
-        <div className="admin-header-actions"><span>{displayName} · {role}</span><button onClick={activeSection === 'employees' ? loadEmployees : activeSection === 'shipments' ? loadShipments : loadQuotes} disabled={busy || employeeBusy} aria-label="Refresh current section"><RefreshCw size={16} /></button><button className={activeSection === 'enquiries' ? 'is-active' : ''} onClick={() => { setActiveSection('enquiries'); setError(''); setNotice(''); }}>Enquiries</button><button className={activeSection === 'shipments' ? 'is-active' : ''} onClick={() => { setActiveSection('shipments'); setError(''); setNotice(''); }}>Shipments</button>{role === 'admin' && <button className={activeSection === 'employees' ? 'is-active' : ''} onClick={() => { setActiveSection('employees'); setError(''); setNotice(''); }}>Employees</button>}<button onClick={signOut}><LogOut size={16} /> Sign out</button></div>
+        <div className="admin-header-actions"><span>{displayName} · {role}</span><button onClick={activeSection === 'employees' ? loadEmployees : activeSection === 'shipments' ? loadShipments : activeSection === 'activity' ? loadActivity : loadQuotes} disabled={busy || employeeBusy} aria-label="Refresh current section"><RefreshCw size={16} /></button><button className={activeSection === 'enquiries' ? 'is-active' : ''} onClick={() => { setActiveSection('enquiries'); setError(''); setNotice(''); }}>Enquiries</button><button className={activeSection === 'shipments' ? 'is-active' : ''} onClick={() => { setActiveSection('shipments'); setError(''); setNotice(''); }}>Shipments</button>{role === 'admin' && <><button className={activeSection === 'employees' ? 'is-active' : ''} onClick={() => { setActiveSection('employees'); setError(''); setNotice(''); }}>Employees</button><button className={activeSection === 'activity' ? 'is-active' : ''} onClick={() => { setActiveSection('activity'); setError(''); setNotice(''); }}>Activity Log</button></>}<button onClick={signOut}><LogOut size={16} /> Sign out</button></div>
       </div></header>
       <section className="admin-content">
         {activeSection === 'enquiries' && <>
@@ -411,6 +417,13 @@ export default function AdminDashboard() {
             }) : <p className="admin-empty">No shipments have been registered yet.</p>}
           </section>
         </>}
+        {activeSection === 'activity' && role === 'admin' && <section className="admin-history-section">
+          <div className="admin-title-row"><div><p className="admin-eyebrow">ACCOUNTABILITY & AUDIT</p><h1>Employee activity</h1><p className="admin-muted">Review who performed important actions across enquiries, quotations, shipments and staff accounts.</p></div><span className="admin-count">{activityEvents.length} event(s)</span></div>
+          {error && <div className="admin-alert admin-alert-error">{error}</div>}
+          <div className="admin-activity-feed">{activityEvents.length ? activityEvents.map((event) => <article className="admin-activity-item" key={event._id}><div><b>{String(event.action || 'activity').replaceAll('_', ' ')}</b><small>{dateText(event.createdAt)} · {event.actor || 'Unknown user'}</small></div><p>{event.details}</p><small>{event.entityType ? event.entityType.toUpperCase() : 'ACTIVITY'}</small></article>) : <p className="admin-empty">No activity has been recorded yet.</p>}</div>
+          <p className="admin-quotation-help">This log includes newly recorded staff and shipment actions, plus enquiry and quotation history already stored by the system.</p>
+        </section>}
+
         {activeSection === 'employees' && role === 'admin' && <section className="admin-employees-section" id="admin-employees">
           <div className="admin-panel-heading"><div><p className="admin-eyebrow">STAFF ACCESS CONTROL</p><h2>Employee management</h2></div><span>{employees.length} account(s)</span></div>
           <p className="admin-quotation-help">Create individual staff accounts, assign permissions and deactivate access when someone leaves the team. Employee passwords are stored as secure hashes.</p>
