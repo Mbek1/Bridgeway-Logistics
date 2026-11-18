@@ -5,6 +5,8 @@ import Quote from '../models/Quote.js';
 import Employee from '../models/Employee.js';
 import Shipment from '../models/Shipment.js';
 import AuditEvent from '../models/AuditEvent.js';
+import Customer from '../models/Customer.js';
+import { upsertCustomer } from '../utils/customer.js';
 
 const router = Router();
 const TOKEN_TTL = 8 * 60 * 60;
@@ -244,6 +246,55 @@ router.patch('/quotes/:id/quotation', requireAuth, requireRoles('admin', 'manage
 });
 
 
+
+router.get('/customers', requireAuth, requireRoles('admin', 'manager', 'sales', 'viewer'), async (req, res, next) => {
+  try {
+    // Attach older enquiries and shipments to customer records the first time the directory is opened.
+    const [unlinkedQuotes, unlinkedShipments] = await Promise.all([
+      Quote.find({ $or: [{ customer: null }, { customer: { $exists: false } }] }).sort({ createdAt: 1 }).limit(5000),
+      Shipment.find({ $or: [{ customer: null }, { customer: { $exists: false } }] }).sort({ createdAt: 1 }).limit(5000),
+    ]);
+    for (const quote of unlinkedQuotes) {
+      const customer = await upsertCustomer({ fullName: quote.fullName, email: quote.email, phone: quote.phone, quoteId: quote._id });
+      quote.customer = customer._id;
+      await quote.save();
+    }
+    for (const shipment of unlinkedShipments) {
+      const customer = await upsertCustomer({ fullName: shipment.customerName, email: shipment.customerEmail, phone: shipment.customerPhone, shipmentId: shipment._id, preferredCustomerId: shipment.quote ? (await Quote.findById(shipment.quote).select('customer'))?.customer : null });
+      shipment.customer = customer._id;
+      await shipment.save();
+    }
+    const search = String(req.query.search || '').trim();
+    const filter = {};
+    if (search) {
+      const safe = search.replace(/[.*+?^()|[\\]\\\\]/g, '\\const SHIPMENT_STATUSES =');
+      filter.$or = ['fullName', 'email', 'phone'].map((field) => ({ [field]: { $regex: safe, $options: 'i' } }));
+    }
+    const customers = await Customer.find(filter).sort({ lastInteractionAt: -1, fullName: 1 }).limit(500).lean();
+    const ids = customers.map((customer) => customer._id);
+    const [quoteCounts, shipmentCounts] = await Promise.all([
+      Quote.aggregate([{ $match: { customer: { $in: ids } } }, { $group: { _id: '$customer', enquiries: { $sum: 1 }, quotationsIssued: { $sum: { $cond: [{ $eq: ['$quotation.status', 'issued'] }, 1, 0] } } }]),
+      Shipment.aggregate([{ $match: { customer: { $in: ids } } }, { $group: { _id: '$customer', shipments: { $sum: 1 } } }]),
+    ]);
+    const qMap = new Map(quoteCounts.map((item) => [String(item._id), item]));
+    const sMap = new Map(shipmentCounts.map((item) => [String(item._id), item]));
+    return res.json({ customers: customers.map((customer) => ({ ...customer, enquiries: qMap.get(String(customer._id))?.enquiries || 0, quotationsIssued: qMap.get(String(customer._id))?.quotationsIssued || 0, shipments: sMap.get(String(customer._id))?.shipments || 0 })) });
+  } catch (error) { return next(error); }
+});
+
+router.get('/customers/:id', requireAuth, requireRoles('admin', 'manager', 'sales', 'viewer'), async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid customer reference.' });
+    const customer = await Customer.findById(req.params.id).lean();
+    if (!customer) return res.status(404).json({ message: 'Customer not found.' });
+    const [enquiries, shipments] = await Promise.all([
+      Quote.find({ customer: customer._id }).sort({ createdAt: -1 }).limit(100).select('reference service pickupLocation deliveryLocation status quotation createdAt').lean(),
+      Shipment.find({ customer: customer._id }).sort({ createdAt: -1 }).limit(100).select('trackingNumber service origin destination status estimatedDelivery deliveredAt createdAt').lean(),
+    ]);
+    return res.json({ customer, enquiries, shipments });
+  } catch (error) { return next(error); }
+});
+
 const SHIPMENT_STATUSES = ['pending', 'picked_up', 'in_transit', 'at_warehouse', 'out_for_delivery', 'delivered', 'delayed', 'cancelled'];
 
 router.get('/shipments', requireAuth, requireRoles('admin', 'manager', 'operations', 'viewer'), async (_req, res, next) => {
@@ -278,8 +329,9 @@ router.post('/shipments', requireAuth, requireRoles('admin', 'manager', 'operati
       if (!driver) return res.status(400).json({ message: 'Select an active operations or manager account as the assigned driver.' });
     }
     const trackingNumber = 'BW-' + Date.now().toString(36).toUpperCase() + randomBytes(2).toString('hex').toUpperCase();
+    const customer = await upsertCustomer({ fullName: quote?.fullName || customerName, email: quote?.email || String(body.customerEmail || '').trim().toLowerCase(), phone: quote?.phone || String(body.customerPhone || '').trim(), quoteId: quote?._id || null, preferredCustomerId: quote?.customer || null });
     const shipment = await Shipment.create({
-      trackingNumber, quote: quote?._id || null, enquiryReference: quote?.reference || '',
+      trackingNumber, quote: quote?._id || null, customer: customer._id, enquiryReference: quote?.reference || '',
       customerName: quote?.fullName || customerName, customerPhone: quote?.phone || String(body.customerPhone || '').trim(),
       customerEmail: quote?.email || String(body.customerEmail || '').trim().toLowerCase(),
       service: quote?.service || String(body.service || '').trim(), origin: quote?.pickupLocation || origin,
