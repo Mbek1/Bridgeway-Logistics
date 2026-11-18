@@ -421,3 +421,12 @@ h1 em, h2 em { color: var(--orange); font-style: normal; }
 .admin-employees-section .admin-panel-heading{padding:0 0 17px;margin-bottom:14px}
 @media(max-width:850px){.admin-employees-layout{grid-template-columns:1fr}}
 @media(max-width:560px){.admin-employees-section{padding:16px 12px}.admin-employee-row{align-items:flex-start;flex-direction:column}.admin-employee-actions{justify-content:flex-start}}
+
+/* Official supplied Bridgeway Logistics logo */
+.brand{gap:0;min-width:0}
+.brand-logo-image{display:block;width:116px;height:auto;max-height:78px;object-fit:contain}
+.footer-brand-col .brand-logo-image{width:145px;max-height:108px}
+@media(max-width:560px){
+  .brand-logo-image{width:104px;max-height:70px}
+  .footer-brand-col .brand-logo-image{width:132px;max-height:98px}
+}
