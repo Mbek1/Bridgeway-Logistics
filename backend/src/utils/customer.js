@@ -1,7 +1,10 @@
 import Customer from '../models/Customer.js';
 
 export function normalizePhone(value = '') {
-  return String(value).replace(/\D/g, '');
+  const digits = String(value).replace(/\D/g, '');
+  // Treat +260 97... and local 097... formats as the same Zambian contact number.
+  if (digits.startsWith('260') && digits.length === 12) return '0' + digits.slice(3);
+  return digits;
 }
 
 export async function upsertCustomer({ fullName, email = '', phone = '', quoteId = null, shipmentId = null, preferredCustomerId = null }) {
