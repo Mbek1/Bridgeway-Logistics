@@ -7,6 +7,7 @@ import Shipment from '../models/Shipment.js';
 import AuditEvent from '../models/AuditEvent.js';
 import Customer from '../models/Customer.js';
 import { upsertCustomer } from '../utils/customer.js';
+import { sendCustomerNotification } from '../utils/customerNotification.js';
 
 const router = Router();
 const TOKEN_TTL = 8 * 60 * 60;
@@ -239,7 +240,19 @@ router.patch('/quotes/:id', requireAuth, requireRoles('admin', 'manager', 'opera
     }
     if (req.body?.status === undefined && req.body?.internalNotes === undefined) return res.status(400).json({ message: 'No valid changes were supplied.' });
     if (events.length) quote.activityLog.push(...events);
-    await quote.save(); return res.json({ quote });
+    await quote.save();
+    let notification = null;
+    if (events.some((event) => event.action === 'request_status_changed')) {
+      const statusLabel = quote.status.replaceAll('_', ' ');
+      notification = await sendCustomerNotification({
+        to: quote.email, greetingName: quote.fullName,
+        subject: 'Bridgeway Logistics enquiry update · ' + quote.reference,
+        heading: 'Your enquiry status has been updated',
+        message: 'There is an update to your logistics enquiry. Our team will contact you if any further information is required.',
+        details: [['Enquiry reference', quote.reference], ['Service', quote.service], ['Current status', statusLabel]],
+      });
+    }
+    return res.json({ quote, notification });
   } catch (error) { return next(error); }
 });
 
@@ -410,6 +423,7 @@ router.patch('/shipments/:id', requireAuth, requireRoles('admin', 'manager', 'op
     const shipment = await Shipment.findById(req.params.id);
     if (!shipment) return res.status(404).json({ message: 'Shipment not found.' });
     const body = req.body || {};
+    const previousStatus = shipment.status;
     if (body.status !== undefined) {
       if (!SHIPMENT_STATUSES.includes(body.status)) return res.status(400).json({ message: 'Select a valid shipment status.' });
       shipment.status = body.status;
@@ -430,7 +444,20 @@ router.patch('/shipments/:id', requireAuth, requireRoles('admin', 'manager', 'op
     }
     await shipment.save();
     await AuditEvent.create({ actor: req.admin.email, actorName: req.admin.name || 'Administrator', action: 'shipment_updated', details: `Updated shipment ${shipment.trackingNumber}; current status: ${shipment.status}.`, entityType: 'shipment', entityId: String(shipment._id) });
-    return res.json({ shipment });
+    let notification = null;
+    if (body.status !== undefined && body.status !== previousStatus) {
+      const clientUrl = (process.env.CLIENT_URL || '').split(',')[0].trim().replace(/\/$/, '');
+      const trackingUrl = clientUrl ? clientUrl + '/#/track/' + encodeURIComponent(shipment.trackingNumber) : '';
+      notification = await sendCustomerNotification({
+        to: shipment.customerEmail, greetingName: shipment.customerName,
+        subject: 'Bridgeway Logistics shipment update · ' + shipment.trackingNumber,
+        heading: 'Your shipment status has changed',
+        message: 'The status of your shipment has been updated. You can use the tracking details below to follow its progress.',
+        details: [['Tracking number', shipment.trackingNumber], ['Current status', shipment.status.replaceAll('_', ' ')], ['Current location', shipment.currentLocation || 'Not provided'], ...(shipment.estimatedDelivery ? [['Estimated delivery', new Date(shipment.estimatedDelivery).toLocaleDateString('en-ZM')] : [])],
+        actionLabel: 'Track shipment', actionUrl: trackingUrl,
+      });
+    }
+    return res.json({ shipment, notification });
   } catch (error) { return next(error); }
 });
 
