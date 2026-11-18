@@ -81,7 +81,7 @@ const initialForm = {
 function Brand({ light = false }) {
   return (
     <a className={`brand ${light ? 'brand-light' : ''}`} href="#home" aria-label="Bridgeway Logistics home">
-      <img className="brand-logo-image" src="/bridgeway-logo.jpg" alt="Bridgeway Logistics — bridge and truck logo" />
+      <img className="brand-logo-image" src="/bridgeway-logo.webp" alt="Bridgeway Logistics — bridge and truck logo" />
     </a>
   );
 }
