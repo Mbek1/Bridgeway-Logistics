@@ -273,7 +273,7 @@ router.get('/customers', requireAuth, requireRoles('admin', 'manager', 'operatio
     const customers = await Customer.find(filter).sort({ lastInteractionAt: -1, fullName: 1 }).limit(500).lean();
     const ids = customers.map((customer) => customer._id);
     const [quoteCounts, shipmentCounts] = await Promise.all([
-      Quote.aggregate([{ $match: { customer: { $in: ids } } }, { $group: { _id: '$customer', enquiries: { $sum: 1 }, quotationsIssued: { $sum: { $cond: [{ $eq: ['$quotation.status', 'issued'] }, 1, 0] } } }]),
+      Quote.aggregate([{ $match: { customer: { $in: ids } } }, { $group: { _id: '$customer', enquiries: { $sum: 1 }, quotationsIssued: { $sum: { $cond: [{ $eq: ['$quotation.status', 'issued'] }, 1, 0] } } } }]),
       Shipment.aggregate([{ $match: { customer: { $in: ids } } }, { $group: { _id: '$customer', shipments: { $sum: 1 } } }]),
     ]);
     const qMap = new Map(quoteCounts.map((item) => [String(item._id), item]));
