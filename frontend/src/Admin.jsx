@@ -10,6 +10,12 @@ export default function AdminDashboard() {
   const [role, setRole] = useState(() => sessionStorage.getItem('bridgeway_admin_role') || 'admin');
   const [displayName, setDisplayName] = useState(() => sessionStorage.getItem('bridgeway_admin_name') || 'Administrator');
   const [activeSection, setActiveSection] = useState('enquiries');
+  const [shipments, setShipments] = useState([]);
+  const [shipmentDrivers, setShipmentDrivers] = useState([]);
+  const [shipmentEnquiries, setShipmentEnquiries] = useState([]);
+  const [shipmentForm, setShipmentForm] = useState({ quoteId: '', customerName: '', customerPhone: '', customerEmail: '', service: '', origin: '', destination: '', cargoDescription: '', quantity: '', driverId: '', vehicle: '', estimatedDelivery: '' });
+  const [shipmentDrafts, setShipmentDrafts] = useState({});
+  const [shipmentBusy, setShipmentBusy] = useState(false);
   const [employees, setEmployees] = useState([]);
   const [employeeForm, setEmployeeForm] = useState({ fullName: '', email: '', phone: '', jobTitle: '', department: '', role: 'viewer', password: '' });
   const [editingEmployeeId, setEditingEmployeeId] = useState('');
@@ -48,6 +54,34 @@ export default function AdminDashboard() {
       throw new Error(data.message || 'Request failed.');
     }
     return data;
+  }
+
+  async function loadShipments() {
+    try {
+      const data = await request('/admin/shipments');
+      setShipments(data.shipments || []); setShipmentDrivers(data.drivers || []); setShipmentEnquiries(data.enquiries || []);
+    } catch (e) { setError(e.message); }
+  }
+
+  async function createShipment(event) {
+    event.preventDefault(); setShipmentBusy(true); setError(''); setNotice('');
+    try {
+      const data = await request('/admin/shipments', { method: 'POST', body: JSON.stringify(shipmentForm) });
+      setShipments((items) => [data.shipment, ...items]);
+      setShipmentForm({ quoteId: '', customerName: '', customerPhone: '', customerEmail: '', service: '', origin: '', destination: '', cargoDescription: '', quantity: '', driverId: '', vehicle: '', estimatedDelivery: '' });
+      setNotice('Shipment registered. Tracking number: ' + data.shipment.trackingNumber);
+    } catch (e) { setError(e.message); }
+    finally { setShipmentBusy(false); }
+  }
+
+  async function updateShipment(id, patch) {
+    setShipmentBusy(true); setError(''); setNotice('');
+    try {
+      const data = await request('/admin/shipments/' + id, { method: 'PATCH', body: JSON.stringify(patch) });
+      setShipments((items) => items.map((item) => item._id === id ? data.shipment : item));
+      setNotice('Shipment ' + data.shipment.trackingNumber + ' updated.');
+    } catch (e) { setError(e.message); }
+    finally { setShipmentBusy(false); }
   }
 
   async function loadEmployees() {
@@ -100,7 +134,7 @@ export default function AdminDashboard() {
     finally { setBusy(false); }
   }
 
-  useEffect(() => { if (token) { loadQuotes(); if (role === 'admin') loadEmployees(); } }, [token, role, page, pageSize]);
+  useEffect(() => { if (token) { if (activeSection === 'enquiries') loadQuotes(); if (activeSection === 'employees' && role === 'admin') loadEmployees(); if (activeSection === 'shipments') loadShipments(); } }, [token, role, page, pageSize, activeSection]);
   useEffect(() => {
     if (selected) {
       setNotes(selected.internalNotes || '');
@@ -200,7 +234,7 @@ export default function AdminDashboard() {
     <main className="admin-page">
       <header className="admin-header"><div className="admin-header-inner">
         <a className="admin-wordmark" href="/#home"><Truck size={22} /> BRIDGEWAY <span>ADMIN</span></a>
-        <div className="admin-header-actions"><span>{displayName} · {role}</span><button onClick={activeSection === 'employees' ? loadEmployees : loadQuotes} disabled={busy || employeeBusy} aria-label="Refresh current section"><RefreshCw size={16} /></button><button className={activeSection === 'enquiries' ? 'is-active' : ''} onClick={() => { setActiveSection('enquiries'); setError(''); setNotice(''); }}>Enquiries</button>{role === 'admin' && <button className={activeSection === 'employees' ? 'is-active' : ''} onClick={() => { setActiveSection('employees'); setError(''); setNotice(''); }}>Employees</button>}<button onClick={signOut}><LogOut size={16} /> Sign out</button></div>
+        <div className="admin-header-actions"><span>{displayName} · {role}</span><button onClick={activeSection === 'employees' ? loadEmployees : activeSection === 'shipments' ? loadShipments : loadQuotes} disabled={busy || employeeBusy} aria-label="Refresh current section"><RefreshCw size={16} /></button><button className={activeSection === 'enquiries' ? 'is-active' : ''} onClick={() => { setActiveSection('enquiries'); setError(''); setNotice(''); }}>Enquiries</button><button className={activeSection === 'shipments' ? 'is-active' : ''} onClick={() => { setActiveSection('shipments'); setError(''); setNotice(''); }}>Shipments</button>{role === 'admin' && <button className={activeSection === 'employees' ? 'is-active' : ''} onClick={() => { setActiveSection('employees'); setError(''); setNotice(''); }}>Employees</button>}<button onClick={signOut}><LogOut size={16} /> Sign out</button></div>
       </div></header>
       <section className="admin-content">
         {activeSection === 'enquiries' && <>
@@ -317,6 +351,65 @@ export default function AdminDashboard() {
             </> : <p className="admin-empty">Select a quote request to view its details.</p>}
           </section>
         </div>
+        </>}
+
+        {activeSection === 'shipments' && <>
+          <div className="admin-title-row"><div><p className="admin-eyebrow">LOGISTICS OPERATIONS</p><h1>Shipment tracking</h1><p className="admin-muted">Register consignments, assign drivers and keep delivery progress up to date.</p></div><span className="admin-count">{shipments.length} shipment(s)</span></div>
+          {error && <div className="admin-alert admin-alert-error">{error}</div>}
+          {notice && <div className="admin-alert admin-alert-success">{notice}</div>}
+          <section className="admin-report-section">
+            <div className="admin-quotation-heading"><div><p className="admin-eyebrow">OPERATIONS OVERVIEW</p><h3>Shipment pipeline</h3></div></div>
+            <div className="admin-stats-grid">
+              <article className="admin-stat-card"><span>Total shipments</span><strong>{shipments.length}</strong></article>
+              <article className="admin-stat-card"><span>In transit</span><strong>{shipments.filter((s) => ['picked_up','in_transit','out_for_delivery'].includes(s.status)).length}</strong></article>
+              <article className="admin-stat-card"><span>Awaiting dispatch</span><strong>{shipments.filter((s) => s.status === 'pending').length}</strong></article>
+              <article className="admin-stat-card"><span>Delivered</span><strong>{shipments.filter((s) => s.status === 'delivered').length}</strong></article>
+            </div>
+          </section>
+          {['admin','manager','operations'].includes(role) && <form className="admin-employees-section shipment-create-form" onSubmit={createShipment}>
+            <div className="admin-panel-heading"><div><p className="admin-eyebrow">NEW CONSIGNMENT</p><h2>Register shipment</h2></div></div>
+            <p className="admin-quotation-help">You can link a previously quoted enquiry to automatically fill in its customer and route details, or enter a shipment manually.</p>
+            <div className="admin-quotation-fields">
+              <label className="admin-quotation-full">Link to an enquiry (optional)<select value={shipmentForm.quoteId} onChange={(e) => { const id=e.target.value; const q=shipmentEnquiries.find((item)=>item._id===id); setShipmentForm((old)=>({...old,quoteId:id,customerName:q?.fullName||old.customerName,customerPhone:q?.phone||old.customerPhone,customerEmail:q?.email||old.customerEmail,service:q?.service||old.service,origin:q?.pickupLocation||old.origin,destination:q?.deliveryLocation||old.destination,cargoDescription:q?.cargoDescription||old.cargoDescription,quantity:q?.quantity||old.quantity})); }}><option value="">Create without linking an enquiry</option>{shipmentEnquiries.map((q)=><option key={q._id} value={q._id}>{q.reference} · {q.fullName} · {q.status}</option>)}</select></label>
+              <label>Customer name<input required maxLength="100" value={shipmentForm.customerName} onChange={(e)=>setShipmentForm({...shipmentForm,customerName:e.target.value})}/></label>
+              <label>Customer phone<input value={shipmentForm.customerPhone} onChange={(e)=>setShipmentForm({...shipmentForm,customerPhone:e.target.value})}/></label>
+              <label>Customer email<input type="email" value={shipmentForm.customerEmail} onChange={(e)=>setShipmentForm({...shipmentForm,customerEmail:e.target.value})}/></label>
+              <label>Service<input value={shipmentForm.service} onChange={(e)=>setShipmentForm({...shipmentForm,service:e.target.value})} placeholder="e.g. Cargo transportation"/></label>
+              <label>Origin / pickup location<input required value={shipmentForm.origin} onChange={(e)=>setShipmentForm({...shipmentForm,origin:e.target.value})}/></label>
+              <label>Destination / delivery location<input required value={shipmentForm.destination} onChange={(e)=>setShipmentForm({...shipmentForm,destination:e.target.value})}/></label>
+              <label className="admin-quotation-full">Cargo description<input required maxLength="500" value={shipmentForm.cargoDescription} onChange={(e)=>setShipmentForm({...shipmentForm,cargoDescription:e.target.value})}/></label>
+              <label>Quantity / load details<input value={shipmentForm.quantity} onChange={(e)=>setShipmentForm({...shipmentForm,quantity:e.target.value})}/></label>
+              <label>Assign driver<select value={shipmentForm.driverId} onChange={(e)=>setShipmentForm({...shipmentForm,driverId:e.target.value})}><option value="">Not assigned</option>{shipmentDrivers.map((d)=><option key={d._id} value={d._id}>{d.fullName}{d.phone?' · '+d.phone:''}</option>)}</select></label>
+              <label>Vehicle / registration<input value={shipmentForm.vehicle} onChange={(e)=>setShipmentForm({...shipmentForm,vehicle:e.target.value})} placeholder="e.g. Truck registration"/></label>
+              <label>Estimated delivery<input type="date" value={shipmentForm.estimatedDelivery} onChange={(e)=>setShipmentForm({...shipmentForm,estimatedDelivery:e.target.value})}/></label>
+            </div>
+            <button className="admin-primary-button" disabled={shipmentBusy}>{shipmentBusy?'Registering…':'Register shipment'}</button>
+          </form>}
+          <section className="admin-shipment-list">
+            <div className="admin-panel-heading"><div><p className="admin-eyebrow">LIVE OPERATIONS</p><h2>Registered shipments</h2></div><span>{shipments.length} record(s)</span></div>
+            {shipments.length ? shipments.map((s) => {
+              const draft=shipmentDrafts[s._id]||{};
+              return <article className="admin-shipment-card" key={s._id}>
+                <div className="admin-shipment-top"><div><b>{s.trackingNumber}</b><small>{s.customerName} · {s.service||'Logistics service'}</small></div><span className="admin-status">{String(s.status).replaceAll('_',' ')}</span></div>
+                <div className="admin-shipment-route"><div><small>ORIGIN</small><b>{s.origin}</b></div><span>→</span><div><small>DESTINATION</small><b>{s.destination}</b></div></div>
+                <div className="admin-shipment-meta"><span>Driver: <b>{s.driverName||'Not assigned'}</b></span><span>Vehicle: <b>{s.vehicle||'Not recorded'}</b></span><span>Current location: <b>{s.currentLocation||'Not updated'}</b></span><span>ETA: <b>{s.estimatedDelivery?dateText(s.estimatedDelivery):'Not set'}</b></span></div>
+                <div className="admin-shipment-edit">
+                  <label>Status<select value={draft.status??s.status} onChange={(e)=>setShipmentDrafts((old)=>({...old,[s._id]:{...old[s._id],status:e.target.value}}))}>{['pending','picked_up','in_transit','at_warehouse','out_for_delivery','delivered','delayed','cancelled'].map((st)=><option key={st} value={st}>{st.replaceAll('_',' ')}</option>)}</select></label>
+                  <label>Assign driver<select value={draft.driverId??s.driver??''} onChange={(e)=>setShipmentDrafts((old)=>({...old,[s._id]:{...old[s._id],driverId:e.target.value}}))}><option value="">Not assigned</option>{shipmentDrivers.map((d)=><option key={d._id} value={d._id}>{d.fullName}</option>)}</select></label>
+                  <label>Current location<input value={draft.currentLocation??s.currentLocation??''} onChange={(e)=>setShipmentDrafts((old)=>({...old,[s._id]:{...old[s._id],currentLocation:e.target.value}}))} placeholder="e.g. Kafue checkpoint"/></label>
+                  <label>Vehicle<input value={draft.vehicle??s.vehicle??''} onChange={(e)=>setShipmentDrafts((old)=>({...old,[s._id]:{...old[s._id],vehicle:e.target.value}}))}/></label>
+                  <label>Received by (delivery confirmation)<input value={draft.deliveryRecipient??s.deliveryRecipient??''} onChange={(e)=>setShipmentDrafts((old)=>({...old,[s._id]:{...old[s._id],deliveryRecipient:e.target.value}}))} placeholder="Recipient's full name"/></label>
+                  <label>Delivery / update notes<input value={draft.deliveryNotes??s.deliveryNotes??''} onChange={(e)=>setShipmentDrafts((old)=>({...old,[s._id]:{...old[s._id],deliveryNotes:e.target.value}}))} placeholder="Condition of cargo, delivery notes…"/></label>
+                </div>
+                <div className="admin-shipment-actions">
+                  {['admin','manager','operations'].includes(role) && <button className="admin-primary-button" disabled={shipmentBusy} onClick={()=>updateShipment(s._id,{status:draft.status??s.status,driverId:draft.driverId??s.driver??'',currentLocation:draft.currentLocation??s.currentLocation??'',vehicle:draft.vehicle??s.vehicle??'',deliveryRecipient:draft.deliveryRecipient??s.deliveryRecipient??'',deliveryNotes:draft.deliveryNotes??s.deliveryNotes??'',updateNote:draft.deliveryNotes||'Shipment progress updated.'})}>Save shipment update</button>}
+                  <button className="admin-secondary-button" type="button" onClick={()=>{const url=window.location.origin+'/shipment-tracking/'+s.trackingNumber; navigator.clipboard?.writeText(url).then(()=>setNotice('Tracking link copied.')).catch(()=>setNotice('Tracking number: '+s.trackingNumber));}}>Copy tracking number</button>
+                </div>
+                {s.status==='delivered' && <p className="admin-shipment-delivered">Delivered {dateText(s.deliveredAt)}{s.deliveryRecipient?' · Received by '+s.deliveryRecipient:''}</p>}
+                {s.updates?.length>0 && <details className="admin-shipment-history"><summary>Shipment history ({s.updates.length})</summary>{[...s.updates].reverse().map((u,i)=><div key={u._id||i}><b>{String(u.status).replaceAll('_',' ')}</b><small>{dateText(u.createdAt)} · {u.location||'Location not recorded'}</small><p>{u.note}</p></div>)}</details>}
+              </article>;
+            }) : <p className="admin-empty">No shipments have been registered yet.</p>}
+          </section>
         </>}
         {activeSection === 'employees' && role === 'admin' && <section className="admin-employees-section" id="admin-employees">
           <div className="admin-panel-heading"><div><p className="admin-eyebrow">STAFF ACCESS CONTROL</p><h2>Employee management</h2></div><span>{employees.length} account(s)</span></div>
