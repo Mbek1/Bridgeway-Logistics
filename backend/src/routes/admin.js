@@ -273,7 +273,7 @@ router.patch('/quotes/:id/quotation', requireAuth, requireRoles('admin', 'manage
     const description = typeof input.description === 'string' ? input.description.trim() : '';
     const terms = typeof input.terms === 'string' ? input.terms.trim() : '';
     const validUntil = input.validUntil ? new Date(input.validUntil) : null;
-    const status = input.status === 'issued' ? 'issued' : 'draft';
+    const status = ['issued', 'accepted', 'rejected'].includes(input.status) ? input.status : 'draft';
     if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ message: 'Enter a quotation amount greater than zero.' });
     if (!description || description.length > 3000) return res.status(400).json({ message: 'Add a description of the services covered (up to 3,000 characters).' });
     if (!validUntil || Number.isNaN(validUntil.getTime())) return res.status(400).json({ message: 'Choose a valid quotation expiry date.' });
@@ -281,6 +281,7 @@ router.patch('/quotes/:id/quotation', requireAuth, requireRoles('admin', 'manage
     if (terms.length > 3000) return res.status(400).json({ message: 'Terms must be 3,000 characters or fewer.' });
     const quote = await Quote.findById(req.params.id).select('+quotation.publicToken');
     if (!quote) return res.status(404).json({ message: 'Quote request not found.' });
+    if (['accepted', 'rejected'].includes(status) && !['issued', 'accepted', 'rejected'].includes(quote.quotation?.status)) return res.status(400).json({ message: 'Only an issued quotation can be marked accepted or rejected.' });
     const previous = quote.quotation?.reference ? quote.quotation.toObject() : null;
     const ref = typeof input.reference === 'string' && input.reference.trim() ? input.reference.trim().slice(0, 60) : (quote.quotation?.reference || 'BWQ-' + Date.now().toString(36).toUpperCase());
     const shouldSendEmail = status === 'issued' && (quote.quotation?.status !== 'issued' || quote.quotation?.emailStatus !== 'sent' || quote.quotation?.reference !== ref || Number(quote.quotation?.amount) !== amount || quote.quotation?.description !== description || quote.quotation?.terms !== terms || new Date(quote.quotation?.validUntil || 0).getTime() !== validUntil.getTime());
