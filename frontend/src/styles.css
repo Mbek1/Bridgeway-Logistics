@@ -504,3 +504,14 @@ h1 em, h2 em { color: var(--orange); font-style: normal; }
   .admin-page-size { width: 100%; margin: 0 0 5px; }
   .admin-page-button { min-width: 31px; min-height: 32px; padding: 0 7px; }
 }
+
+
+/* Distinct admin workspace navigation */
+.admin-header-actions button.is-active {
+  border-color: #f28b32;
+  background: rgba(242, 139, 50, .14);
+  color: #ffad61;
+}
+.admin-employees-section {
+  margin-top: 0;
+}
