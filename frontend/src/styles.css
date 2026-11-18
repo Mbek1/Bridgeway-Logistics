@@ -430,3 +430,17 @@ h1 em, h2 em { color: var(--orange); font-style: normal; }
   .brand-logo-image{width:104px;max-height:70px}
   .footer-brand-col .brand-logo-image{width:132px;max-height:98px}
 }
+
+
+/* Blend the supplied JPG logo into the site instead of showing its white image canvas.
+   Multiply makes the white pixels disappear against the header/footer surfaces. */
+.brand-logo-image {
+  mix-blend-mode: multiply;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  filter: saturate(1.04);
+}
+.brand {
+  background: transparent;
+}
