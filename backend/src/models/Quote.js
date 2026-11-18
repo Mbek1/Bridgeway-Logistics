@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 const quoteSchema = new mongoose.Schema(
   {
     reference: { type: String, required: true, unique: true, index: true },
+    customer: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', default: null, index: true },
     fullName: { type: String, required: true, trim: true, maxlength: 100 },
     email: { type: String, trim: true, lowercase: true, maxlength: 150, default: '' },
     phone: { type: String, required: true, trim: true, maxlength: 30 },
