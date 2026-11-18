@@ -17,6 +17,10 @@ export default function AdminDashboard() {
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerDetail, setCustomerDetail] = useState(null);
   const [customerBusy, setCustomerBusy] = useState(false);
+  const [reportFrom, setReportFrom] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 5, 1); return d.toISOString().slice(0, 10); });
+  const [reportTo, setReportTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [reportData, setReportData] = useState(null);
+  const [reportBusy, setReportBusy] = useState(false);
   const [shipmentDrivers, setShipmentDrivers] = useState([]);
   const [shipmentEnquiries, setShipmentEnquiries] = useState([]);
   const [shipmentForm, setShipmentForm] = useState({ quoteId: '', customerName: '', customerPhone: '', customerEmail: '', service: '', origin: '', destination: '', cargoDescription: '', quantity: '', driverId: '', vehicle: '', estimatedDelivery: '' });
@@ -84,6 +88,52 @@ export default function AdminDashboard() {
       setCustomerDetail(data);
       setSelectedCustomerId(id);
     } catch (e) { setError(e.message); }
+  }
+
+  async function loadReports(from = reportFrom, to = reportTo) {
+    setReportBusy(true); setError('');
+    try {
+      const params = new URLSearchParams({ from, to });
+      const data = await request('/admin/reports?' + params.toString());
+      setReportData(data);
+    } catch (e) { setError(e.message); }
+    finally { setReportBusy(false); }
+  }
+
+  function exportReportsCsv() {
+    if (!reportData) return;
+    const rows = [
+      ['Bridgeway Logistics performance report', reportData.from + ' to ' + reportData.to],
+      ['Metric', 'Value'],
+      ['Enquiries', reportData.summary.enquiries],
+      ['Quotations issued', reportData.summary.issued],
+      ['Accepted quotations', reportData.summary.accepted],
+      ['Rejected quotations', reportData.summary.rejected],
+      ['Accepted quotation revenue (ZMW)', reportData.summary.acceptedRevenue],
+      ['Quotation conversion rate (%)', reportData.summary.conversionRate],
+      ['Shipments', reportData.summary.shipmentTotal],
+      ['Delivered shipments', reportData.summary.delivered],
+      ['On-time deliveries', reportData.summary.onTimeDeliveries],
+      ['On-time delivery rate (%)', reportData.summary.onTimeRate],
+      [],
+      ['Monthly performance'],
+      ['Month', 'Enquiries', 'Quotations issued', 'Accepted quotations', 'Accepted revenue (ZMW)'],
+      ...(reportData.monthly || []).map((item) => [item._id, item.enquiries, item.issued, item.accepted, item.revenue]),
+      [],
+      ['Top customers'],
+      ['Customer', 'Email', 'Accepted quotations', 'Accepted revenue (ZMW)'],
+      ...(reportData.topCustomers || []).map((item) => [item.name, item.email, item.acceptedQuotes, item.revenue]),
+      [],
+      ['Shipment status'],
+      ['Status', 'Count'],
+      ...(reportData.shipmentStatuses || []).map((item) => [item._id, item.count]),
+    ];
+    const csv = rows.map((row) => row.map((value) => '"' + String(value ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url; link.download = 'bridgeway-performance-' + reportData.from + '-to-' + reportData.to + '.csv';
+    document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
   }
 
   async function loadActivity() {
@@ -169,7 +219,7 @@ export default function AdminDashboard() {
     finally { setBusy(false); }
   }
 
-  useEffect(() => { if (token) { if (activeSection === 'enquiries') loadQuotes(); if (activeSection === 'employees' && role === 'admin') loadEmployees(); if (activeSection === 'shipments') loadShipments(); if (activeSection === 'activity' && role === 'admin') loadActivity(); if (activeSection === 'customers') loadCustomers(); } }, [token, role, page, pageSize, activeSection]);
+  useEffect(() => { if (token) { if (activeSection === 'enquiries') loadQuotes(); if (activeSection === 'employees' && role === 'admin') loadEmployees(); if (activeSection === 'shipments') loadShipments(); if (activeSection === 'activity' && role === 'admin') loadActivity(); if (activeSection === 'customers') loadCustomers(); if (activeSection === 'reports') loadReports(); } }, [token, role, page, pageSize, activeSection]);
   useEffect(() => {
     if (selected) {
       setNotes(selected.internalNotes || '');
@@ -269,7 +319,7 @@ export default function AdminDashboard() {
     <main className="admin-page">
       <header className="admin-header"><div className="admin-header-inner">
         <a className="admin-wordmark" href="/#home"><Truck size={22} /> BRIDGEWAY <span>ADMIN</span></a>
-        <div className="admin-header-actions"><span>{displayName} · {role}</span><button onClick={activeSection === 'employees' ? loadEmployees : activeSection === 'shipments' ? loadShipments : activeSection === 'activity' ? loadActivity : activeSection === 'customers' ? loadCustomers : loadQuotes} disabled={busy || employeeBusy} aria-label="Refresh current section"><RefreshCw size={16} /></button><button className={activeSection === 'enquiries' ? 'is-active' : ''} onClick={() => { setActiveSection('enquiries'); setError(''); setNotice(''); }}>Enquiries</button><button className={activeSection === 'shipments' ? 'is-active' : ''} onClick={() => { setActiveSection('shipments'); setError(''); setNotice(''); }}>Shipments</button><button className={activeSection === 'customers' ? 'is-active' : ''} onClick={() => { setActiveSection('customers'); setError(''); setNotice(''); }}>Customers</button>{role === 'admin' && <><button className={activeSection === 'employees' ? 'is-active' : ''} onClick={() => { setActiveSection('employees'); setError(''); setNotice(''); }}>Employees</button><button className={activeSection === 'activity' ? 'is-active' : ''} onClick={() => { setActiveSection('activity'); setError(''); setNotice(''); }}>Activity Log</button></>}<button onClick={signOut}><LogOut size={16} /> Sign out</button></div>
+        <div className="admin-header-actions"><span>{displayName} · {role}</span><button onClick={activeSection === 'employees' ? loadEmployees : activeSection === 'shipments' ? loadShipments : activeSection === 'activity' ? loadActivity : activeSection === 'customers' ? loadCustomers : activeSection === 'reports' ? loadReports : loadQuotes} disabled={busy || employeeBusy} aria-label="Refresh current section"><RefreshCw size={16} /></button><button className={activeSection === 'enquiries' ? 'is-active' : ''} onClick={() => { setActiveSection('enquiries'); setError(''); setNotice(''); }}>Enquiries</button><button className={activeSection === 'shipments' ? 'is-active' : ''} onClick={() => { setActiveSection('shipments'); setError(''); setNotice(''); }}>Shipments</button><button className={activeSection === 'customers' ? 'is-active' : ''} onClick={() => { setActiveSection('customers'); setError(''); setNotice(''); }}>Customers</button><button className={activeSection === 'reports' ? 'is-active' : ''} onClick={() => { setActiveSection('reports'); setError(''); setNotice(''); }}>Reports</button>{role === 'admin' && <><button className={activeSection === 'employees' ? 'is-active' : ''} onClick={() => { setActiveSection('employees'); setError(''); setNotice(''); }}>Employees</button><button className={activeSection === 'activity' ? 'is-active' : ''} onClick={() => { setActiveSection('activity'); setError(''); setNotice(''); }}>Activity Log</button></>}<button onClick={signOut}><LogOut size={16} /> Sign out</button></div>
       </div></header>
       <section className="admin-content">
         {activeSection === 'enquiries' && <>
@@ -446,6 +496,45 @@ export default function AdminDashboard() {
             }) : <p className="admin-empty">No shipments have been registered yet.</p>}
           </section>
         </>}
+        {activeSection === 'reports' && <section className="admin-report-page">
+          <div className="admin-title-row"><div><p className="admin-eyebrow">BUSINESS INTELLIGENCE</p><h1>Performance reports</h1><p className="admin-muted">Review accepted quotation revenue, sales conversion, customer value and delivery performance.</p></div><span className="admin-count">{reportData ? reportData.from + ' – ' + reportData.to : 'Select a period'}</span></div>
+          <form className="admin-report-filters" onSubmit={(event) => { event.preventDefault(); loadReports(); }}>
+            <label>From<input type="date" value={reportFrom} max={reportTo} onChange={(e) => setReportFrom(e.target.value)} required /></label>
+            <label>To<input type="date" value={reportTo} min={reportFrom} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setReportTo(e.target.value)} required /></label>
+            <button className="admin-primary-button" disabled={reportBusy}>{reportBusy ? 'Generating…' : 'Apply dates'}</button>
+            <button type="button" className="admin-secondary-button" onClick={exportReportsCsv} disabled={!reportData || reportBusy}>Export Excel-compatible CSV</button>
+            <button type="button" className="admin-secondary-button" onClick={() => window.print()} disabled={!reportData || reportBusy}>Print / Save PDF</button>
+          </form>
+          {error && <div className="admin-alert admin-alert-error">{error}</div>}
+          {reportBusy && !reportData ? <p className="admin-empty">Generating performance report…</p> : reportData && <>
+            <div className="admin-stats-grid admin-report-metrics">
+              <article className="admin-stat-card"><span>Total enquiries</span><strong>{reportData.summary.enquiries}</strong></article>
+              <article className="admin-stat-card"><span>Quotations issued</span><strong>{reportData.summary.issued}</strong></article>
+              <article className="admin-stat-card"><span>Accepted quotations</span><strong>{reportData.summary.accepted}</strong></article>
+              <article className="admin-stat-card"><span>Rejected quotations</span><strong>{reportData.summary.rejected}</strong></article>
+              <article className="admin-stat-card"><span>Accepted revenue</span><strong>ZMW {Number(reportData.summary.acceptedRevenue || 0).toLocaleString('en-ZM', { maximumFractionDigits: 2 })}</strong></article>
+              <article className="admin-stat-card"><span>Quotation conversion</span><strong>{reportData.summary.conversionRate}%</strong></article>
+              <article className="admin-stat-card"><span>Shipments created</span><strong>{reportData.summary.shipmentTotal}</strong></article>
+              <article className="admin-stat-card"><span>On-time delivery rate</span><strong>{reportData.summary.onTimeRate}%</strong></article>
+            </div>
+            <section className="admin-report-section">
+              <div className="admin-quotation-heading"><div><p className="admin-eyebrow">MONTHLY TRENDS</p><h3>Enquiries, accepted quotations and revenue</h3></div><span className="admin-count">{reportData.monthly.length} month(s)</span></div>
+              {reportData.monthly.length ? <div className="admin-report-table-wrap"><table className="admin-report-table"><thead><tr><th>Month</th><th>Enquiries</th><th>Issued</th><th>Accepted</th><th>Revenue (ZMW)</th></tr></thead><tbody>{reportData.monthly.map((item) => <tr key={item._id}><td>{item._id}</td><td>{item.enquiries}</td><td>{item.issued}</td><td>{item.accepted}</td><td>{Number(item.revenue || 0).toLocaleString('en-ZM', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>)}</tbody></table></div> : <p className="admin-empty">No enquiry activity was recorded in this period.</p>}
+            </section>
+            <div className="admin-report-two-column">
+              <section className="admin-report-section">
+                <div className="admin-quotation-heading"><div><p className="admin-eyebrow">CUSTOMER VALUE</p><h3>Top customers by accepted revenue</h3></div></div>
+                {reportData.topCustomers.length ? <div className="admin-report-table-wrap"><table className="admin-report-table"><thead><tr><th>Customer</th><th>Accepted</th><th>Revenue (ZMW)</th></tr></thead><tbody>{reportData.topCustomers.map((item, index) => <tr key={String(item._id) + index}><td><b>{item.name}</b><small>{item.email || 'No email recorded'}</small></td><td>{item.acceptedQuotes}</td><td>{Number(item.revenue || 0).toLocaleString('en-ZM', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>)}</tbody></table></div> : <p className="admin-empty">No accepted quotations were recorded in this period.</p>}
+              </section>
+              <section className="admin-report-section">
+                <div className="admin-quotation-heading"><div><p className="admin-eyebrow">DELIVERY OPERATIONS</p><h3>Shipment status breakdown</h3></div></div>
+                {reportData.shipmentStatuses.length ? <div className="admin-report-table-wrap"><table className="admin-report-table"><thead><tr><th>Status</th><th>Shipments</th></tr></thead><tbody>{reportData.shipmentStatuses.map((item) => <tr key={item._id}><td>{String(item._id).replaceAll('_', ' ')}</td><td>{item.count}</td></tr>)}</tbody></table></div> : <p className="admin-empty">No shipments were created in this period.</p>}
+                <p className="admin-quotation-help">{reportData.summary.onTimeDeliveries} of {reportData.summary.delivered} delivered shipments with recorded delivery estimates were delivered on or before the estimated date.</p>
+              </section>
+            </div>
+            <p className="admin-quotation-help">Revenue counts quotations explicitly marked Accepted; it is not a record of cash received. Delivery-rate calculations exclude delivered shipments without an estimated delivery date.</p>
+          </>}
+        </section>}
         {activeSection === 'customers' && <section className="admin-customers-section">
           <div className="admin-title-row"><div><p className="admin-eyebrow">CUSTOMER RELATIONSHIPS</p><h1>Customer directory</h1><p className="admin-muted">One place to find customer contacts, enquiries, quotations and shipments.</p></div><span className="admin-count">{customers.length} customer(s)</span></div>
           {error && <div className="admin-alert admin-alert-error">{error}</div>}
