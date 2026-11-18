@@ -290,7 +290,8 @@ router.patch('/quotes/:id/quotation', requireAuth, requireRoles('admin', 'manage
     quote.quotation = { reference: ref, amount, currency: 'ZMW', description, terms, validUntil, status, issuedAt: status === 'issued' ? (quote.quotation?.issuedAt || new Date()) : (quote.quotation?.issuedAt || null), emailStatus: shouldSendEmail ? 'not_sent' : (quote.quotation?.emailStatus || 'not_sent'), emailSentAt: quote.quotation?.emailSentAt || null, emailError: '', publicToken };
     if (status === 'issued') quote.status = 'quoted';
     if (previous) quote.quotationHistory.push({ ...previous, savedAt: new Date() });
-    quote.activityLog.push({ action: wasIssued ? 'quotation_updated' : (status === 'issued' ? 'quotation_issued' : 'quotation_draft_saved'), details: wasIssued ? 'Quotation ' + ref + ' was revised.' : (status === 'issued' ? 'Quotation ' + ref + ' was issued.' : 'Quotation draft was saved.'), actor: req.admin.email });
+    const outcomeChanged = ['accepted', 'rejected'].includes(status) && quote.quotation.status !== status;
+    quote.activityLog.push({ action: outcomeChanged ? 'quotation_' + status : (wasIssued ? 'quotation_updated' : (status === 'issued' ? 'quotation_issued' : 'quotation_draft_saved')), details: outcomeChanged ? 'Quotation ' + ref + ' was marked ' + status + '.' : (wasIssued ? 'Quotation ' + ref + ' was revised.' : (status === 'issued' ? 'Quotation ' + ref + ' was issued.' : 'Quotation draft was saved.')), actor: req.admin.email });
     await quote.save();
     let email = { status: quote.quotation.emailStatus, error: quote.quotation.emailError };
     if (shouldSendEmail) { email = await sendQuotationEmail(quote); quote.quotation.emailStatus = email.status; quote.quotation.emailError = email.error; if (email.status === 'sent') quote.quotation.emailSentAt = new Date(); await quote.save(); }
