@@ -453,7 +453,7 @@ router.patch('/shipments/:id', requireAuth, requireRoles('admin', 'manager', 'op
         subject: 'Bridgeway Logistics shipment update · ' + shipment.trackingNumber,
         heading: 'Your shipment status has changed',
         message: 'The status of your shipment has been updated. You can use the tracking details below to follow its progress.',
-        details: [['Tracking number', shipment.trackingNumber], ['Current status', shipment.status.replaceAll('_', ' ')], ['Current location', shipment.currentLocation || 'Not provided'], ...(shipment.estimatedDelivery ? [['Estimated delivery', new Date(shipment.estimatedDelivery).toLocaleDateString('en-ZM')] : [])],
+        details: [['Tracking number', shipment.trackingNumber], ['Current status', shipment.status.replaceAll('_', ' ')], ['Current location', shipment.currentLocation || 'Not provided'], ...(shipment.estimatedDelivery ? [['Estimated delivery', new Date(shipment.estimatedDelivery).toLocaleDateString('en-ZM')]] : [])],
         actionLabel: 'Track shipment', actionUrl: trackingUrl,
       });
     }
