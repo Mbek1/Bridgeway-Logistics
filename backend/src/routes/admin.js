@@ -178,21 +178,22 @@ router.get('/reports', requireAuth, async (req, res, next) => {
       Shipment.aggregate([{ $match: shipmentMatch }, { $group: { _id: '$status', count: { $sum: 1 } } }, { $sort: { count: -1 } }]),
       Shipment.aggregate([
         { $match: { ...shipmentMatch, status: 'delivered' } },
-        { $group: { _id: null, delivered: { $sum: 1 }, onTime: { $sum: { $cond: [{ $and: [{ $ne: ['$estimatedDelivery', null] }, { $lte: ['$deliveredAt', '$estimatedDelivery'] }] }, 1, 0] } } } },
+        { $group: { _id: null, delivered: { $sum: 1 }, eligible: { $sum: { $cond: [{ $ne: ['$estimatedDelivery', null] }, 1, 0] } }, onTime: { $sum: { $cond: [{ $and: [{ $ne: ['$estimatedDelivery', null] }, { $lte: ['$deliveredAt', '$estimatedDelivery'] }] }, 1, 0] } } } } },
       ]),
     ]);
     const summary = quoteSummaryRows[0] || { enquiries: 0, issued: 0, accepted: 0, rejected: 0, revenue: 0 };
     const shipmentTotal = shipmentStatuses.reduce((sum, item) => sum + item.count, 0);
     const delivered = deliveryRows[0]?.delivered || 0;
     const onTime = deliveryRows[0]?.onTime || 0;
+    const eligibleDeliveries = deliveryRows[0]?.eligible || 0;
     return res.json({
       from, to,
       summary: {
         enquiries: summary.enquiries || 0, issued: summary.issued || 0, accepted: summary.accepted || 0,
         rejected: summary.rejected || 0, acceptedRevenue: summary.revenue || 0,
         conversionRate: summary.issued ? Math.round(summary.accepted / summary.issued * 100) : 0,
-        shipmentTotal, delivered, onTimeDeliveries: onTime,
-        onTimeRate: delivered ? Math.round(onTime / delivered * 100) : 0,
+        shipmentTotal, delivered, eligibleDeliveries, onTimeDeliveries: onTime,
+        onTimeRate: eligibleDeliveries ? Math.round(onTime / eligibleDeliveries * 100) : 0,
       },
       monthly, topCustomers, shipmentStatuses,
     });
