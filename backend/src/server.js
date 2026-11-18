@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import mongoose from 'mongoose';
 import quoteRoutes from './routes/quotes.js';
 import adminRoutes from './routes/admin.js';
+import shipmentRoutes from './routes/shipments.js';
 
 const app = express();
 const port = Number(process.env.PORT) || 5000;
@@ -47,6 +48,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/admin/login', rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: 'draft-7', legacyHeaders: false, message: { message: 'Too many sign-in attempts. Please try again later.' } }));
 app.use('/api/admin', adminRoutes);
 app.use('/api/quotes', quoteLimiter, quoteRoutes);
+app.use('/api/shipments', shipmentRoutes);
 
 app.use((_req, res) => {
   res.status(404).json({ message: 'Route not found.' });
