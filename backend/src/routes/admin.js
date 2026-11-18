@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import Quote from '../models/Quote.js';
 import Employee from '../models/Employee.js';
 import Shipment from '../models/Shipment.js';
+import AuditEvent from '../models/AuditEvent.js';
 
 const router = Router();
 const TOKEN_TTL = 8 * 60 * 60;
@@ -96,6 +97,7 @@ router.post('/employees', requireAuth, requireRoles('admin'), async (req, res, n
     if (!EMPLOYEE_ROLES.includes(role)) return res.status(400).json({ message: 'Choose a valid employee role.' });
     const employee = await Employee.create({ fullName, email, passwordHash: passwordHash(password), role, phone: String(req.body?.phone || '').trim().slice(0, 30), jobTitle: String(req.body?.jobTitle || '').trim().slice(0, 100), department: String(req.body?.department || '').trim().slice(0, 100), createdBy: req.admin.email });
     const safe = employee.toObject(); delete safe.passwordHash;
+    await AuditEvent.create({ actor: req.admin.email, actorName: req.admin.name || 'Administrator', action: 'employee_created', details: `Created employee account for ${employee.fullName} (${employee.email}).`, entityType: 'employee', entityId: String(employee._id) });
     return res.status(201).json({ employee: safe });
   } catch (error) {
     if (error.code === 11000) return res.status(409).json({ message: 'An employee account already exists for that email address.' });
@@ -118,6 +120,7 @@ router.patch('/employees/:id', requireAuth, requireRoles('admin'), async (req, r
     if (password !== undefined && password !== '') { if (typeof password !== 'string' || password.length < 10 || password.length > 128) return res.status(400).json({ message: 'New passwords must be at least 10 characters long.' }); employee.passwordHash = passwordHash(password); }
     await employee.save();
     const safe = employee.toObject(); delete safe.passwordHash;
+    await AuditEvent.create({ actor: req.admin.email, actorName: req.admin.name || 'Administrator', action: 'employee_updated', details: `Updated employee account for ${employee.fullName} (${employee.email}).`, entityType: 'employee', entityId: String(employee._id) });
     return res.json({ employee: safe });
   } catch (error) {
     if (error.code === 11000) return res.status(409).json({ message: 'An employee account already exists for that email address.' });
@@ -287,6 +290,7 @@ router.post('/shipments', requireAuth, requireRoles('admin', 'manager', 'operati
       createdBy: req.admin.email,
       updates: [{ status: 'pending', location: '', note: 'Shipment registered.', actor: req.admin.email }],
     });
+    await AuditEvent.create({ actor: req.admin.email, actorName: req.admin.name || 'Administrator', action: 'shipment_created', details: `Registered shipment ${shipment.trackingNumber} for ${shipment.customerName}.`, entityType: 'shipment', entityId: String(shipment._id) });
     return res.status(201).json({ shipment });
   } catch (error) { return next(error); }
 });
@@ -315,7 +319,25 @@ router.patch('/shipments/:id', requireAuth, requireRoles('admin', 'manager', 'op
       shipment.updates.push({ status: shipment.status, location: shipment.currentLocation, note: String(body.updateNote || (body.status === 'delivered' ? 'Delivery confirmed.' : 'Shipment details updated.')).trim().slice(0, 500), actor: req.admin.email });
     }
     await shipment.save();
+    await AuditEvent.create({ actor: req.admin.email, actorName: req.admin.name || 'Administrator', action: 'shipment_updated', details: `Updated shipment ${shipment.trackingNumber}; current status: ${shipment.status}.`, entityType: 'shipment', entityId: String(shipment._id) });
     return res.json({ shipment });
+  } catch (error) { return next(error); }
+});
+
+router.get('/activity', requireAuth, requireRoles('admin'), async (req, res, next) => {
+  try {
+    const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 100, 1), 300);
+    const [auditEvents, quoteEvents, shipmentEvents] = await Promise.all([
+      AuditEvent.find().sort({ createdAt: -1 }).limit(limit).lean(),
+      Quote.find({ 'activityLog.0': { $exists: true } }).select('reference fullName activityLog').lean(),
+      Shipment.find({ 'updates.0': { $exists: true } }).select('trackingNumber customerName updates').lean(),
+    ]);
+    const events = [
+      ...auditEvents.map((event) => ({ _id: String(event._id), actor: event.actorName || event.actor, action: event.action, details: event.details, entityType: event.entityType, entityId: event.entityId, createdAt: event.createdAt })),
+      ...quoteEvents.flatMap((quote) => (quote.activityLog || []).map((event) => ({ _id: String(event._id), actor: event.actor || 'Unknown', action: event.action, details: (quote.reference ? quote.reference + ' · ' : '') + (event.details || quote.fullName || 'Enquiry activity'), entityType: 'enquiry', entityId: String(quote._id), createdAt: event.createdAt }))),
+      ...shipmentEvents.flatMap((shipment) => (shipment.updates || []).map((event) => ({ _id: String(event._id), actor: event.actor || 'Unknown', action: 'shipment_' + event.status, details: shipment.trackingNumber + ' · ' + (event.note || shipment.customerName || 'Shipment update') + (event.location ? ' · ' + event.location : ''), entityType: 'shipment', entityId: String(shipment._id), createdAt: event.createdAt }))),
+    ].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)).slice(0, limit);
+    return res.json({ events, count: events.length });
   } catch (error) { return next(error); }
 });
 
