@@ -9,6 +9,7 @@ export default function AdminDashboard() {
   const [token, setToken] = useState(() => sessionStorage.getItem('bridgeway_admin_token') || '');
   const [role, setRole] = useState(() => sessionStorage.getItem('bridgeway_admin_role') || 'admin');
   const [displayName, setDisplayName] = useState(() => sessionStorage.getItem('bridgeway_admin_name') || 'Administrator');
+  const [activeSection, setActiveSection] = useState('enquiries');
   const [employees, setEmployees] = useState([]);
   const [employeeForm, setEmployeeForm] = useState({ fullName: '', email: '', phone: '', jobTitle: '', department: '', role: 'viewer', password: '' });
   const [editingEmployeeId, setEditingEmployeeId] = useState('');
@@ -199,9 +200,10 @@ export default function AdminDashboard() {
     <main className="admin-page">
       <header className="admin-header"><div className="admin-header-inner">
         <a className="admin-wordmark" href="/#home"><Truck size={22} /> BRIDGEWAY <span>ADMIN</span></a>
-        <div className="admin-header-actions"><span>{displayName} · {role}</span><button onClick={loadQuotes} disabled={busy} aria-label="Refresh quotes"><RefreshCw size={16} /></button>{role === 'admin' && <button onClick={() => document.getElementById('admin-employees')?.scrollIntoView({ behavior: 'smooth' })}>Employees</button>}<button onClick={signOut}><LogOut size={16} /> Sign out</button></div>
+        <div className="admin-header-actions"><span>{displayName} · {role}</span><button onClick={activeSection === 'employees' ? loadEmployees : loadQuotes} disabled={busy || employeeBusy} aria-label="Refresh current section"><RefreshCw size={16} /></button><button className={activeSection === 'enquiries' ? 'is-active' : ''} onClick={() => { setActiveSection('enquiries'); setError(''); setNotice(''); }}>Enquiries</button>{role === 'admin' && <button className={activeSection === 'employees' ? 'is-active' : ''} onClick={() => { setActiveSection('employees'); setError(''); setNotice(''); }}>Employees</button>}<button onClick={signOut}><LogOut size={16} /> Sign out</button></div>
       </div></header>
       <section className="admin-content">
+        {activeSection === 'enquiries' && <>
         <div className="admin-title-row"><div><p className="admin-eyebrow">ENQUIRY MANAGEMENT</p><h1>Quote requests</h1><p className="admin-muted">Review incoming enquiries and manage customer follow-ups.</p></div><span className="admin-count">{quotes.length} shown</span></div>
         <div className="admin-stats-grid">
           <article className="admin-stat-card"><span>Total enquiries</span><strong>{stats.total}</strong></article>
@@ -315,7 +317,8 @@ export default function AdminDashboard() {
             </> : <p className="admin-empty">Select a quote request to view its details.</p>}
           </section>
         </div>
-        {role === 'admin' && <section className="admin-employees-section" id="admin-employees">
+        </>}
+        {activeSection === 'employees' && role === 'admin' && <section className="admin-employees-section" id="admin-employees">
           <div className="admin-panel-heading"><div><p className="admin-eyebrow">STAFF ACCESS CONTROL</p><h2>Employee management</h2></div><span>{employees.length} account(s)</span></div>
           <p className="admin-quotation-help">Create individual staff accounts, assign permissions and deactivate access when someone leaves the team. Employee passwords are stored as secure hashes.</p>
           <div className="admin-employees-layout">
