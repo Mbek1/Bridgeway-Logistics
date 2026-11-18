@@ -178,7 +178,7 @@ router.get('/reports', requireAuth, async (req, res, next) => {
       Shipment.aggregate([{ $match: shipmentMatch }, { $group: { _id: '$status', count: { $sum: 1 } } }, { $sort: { count: -1 } }]),
       Shipment.aggregate([
         { $match: { ...shipmentMatch, status: 'delivered' } },
-        { $group: { _id: null, delivered: { $sum: 1 }, onTime: { $sum: { $cond: [{ $and: [{ $ne: ['$estimatedDelivery', null] }, { $lte: ['$deliveredAt', '$estimatedDelivery'] }] }, 1, 0] } } },
+        { $group: { _id: null, delivered: { $sum: 1 }, onTime: { $sum: { $cond: [{ $and: [{ $ne: ['$estimatedDelivery', null] }, { $lte: ['$deliveredAt', '$estimatedDelivery'] }] }, 1, 0] } } } },
       ]),
     ]);
     const summary = quoteSummaryRows[0] || { enquiries: 0, issued: 0, accepted: 0, rejected: 0, revenue: 0 };
