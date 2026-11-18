@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, LogOut, RefreshCw, Search, Truck } from 'lucide-react';
 
 const API = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
@@ -20,6 +20,10 @@ export default function AdminDashboard() {
   const [selectedId, setSelectedId] = useState('');
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalQuotes, setTotalQuotes] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [notes, setNotes] = useState('');
   const [nextStatus, setNextStatus] = useState('new');
   const [quotation, setQuotation] = useState({ reference: '', amount: '', description: '', terms: '', validUntil: '', status: 'draft' });
@@ -83,15 +87,19 @@ export default function AdminDashboard() {
       const params = new URLSearchParams();
       if (search.trim()) params.set('search', search.trim());
       if (status !== 'all') params.set('status', status);
+      params.set('page', String(page));
+      params.set('limit', String(pageSize));
       const [data, summary] = await Promise.all([request('/admin/quotes?' + params.toString()), request('/admin/stats')]);
       setQuotes(data.quotes || []);
+      setTotalQuotes(Number(data.total || 0));
+      setTotalPages(Math.max(1, Number(data.totalPages || 1)));
       setStats(summary);
       setSelectedId((old) => (data.quotes || []).some((q) => q._id === old) ? old : (data.quotes?.[0]?._id || ''));
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
   }
 
-  useEffect(() => { if (token) { loadQuotes(); if (role === 'admin') loadEmployees(); } }, [token, role]);
+  useEffect(() => { if (token) { loadQuotes(); if (role === 'admin') loadEmployees(); } }, [token, role, page, pageSize]);
   useEffect(() => {
     if (selected) {
       setNotes(selected.internalNotes || '');
@@ -211,13 +219,13 @@ export default function AdminDashboard() {
         <div className="admin-toolbar">
           <label className="admin-search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadQuotes()} placeholder="Search name, reference, phone…" /></label>
           <select value={status} onChange={(e) => setStatus(e.target.value)}><option value="all">All statuses</option>{STATUSES.map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}</select>
-          <button className="admin-secondary-button" onClick={loadQuotes} disabled={busy}>Search</button>
+          <button className="admin-secondary-button" onClick={() => page === 1 ? loadQuotes() : setPage(1)} disabled={busy}>Search</button>
         </div>
         {error && <div className="admin-alert admin-alert-error">{error}</div>}
         {notice && <div className="admin-alert admin-alert-success">{notice}</div>}
         <div className="admin-workspace">
           <section className="admin-list-panel">
-            <div className="admin-panel-heading"><h2>Enquiries</h2><span>{quotes.length}</span></div>
+            <div className="admin-panel-heading"><h2>Enquiries</h2><span>{totalQuotes}</span></div>
             {busy && !quotes.length ? <p className="admin-empty">Loading quote requests…</p> : quotes.length ? quotes.map((q) => (
               <button className={'admin-quote-row ' + (selectedId === q._id ? 'is-selected' : '')} key={q._id} onClick={() => setSelectedId(q._id)}>
                 <span className="admin-quote-row-top"><b>{q.fullName}</b><small>{dateText(q.createdAt)}</small></span>
@@ -225,6 +233,26 @@ export default function AdminDashboard() {
                 <span className="admin-quote-row-bottom"><span>{q.service}</span><i className={'admin-status status-' + q.status}>{q.status}</i></span>
               </button>
             )) : <p className="admin-empty">No quote requests match your search.</p>}
+            {totalQuotes > 0 && <div className="admin-pagination">
+              <div className="admin-pagination-summary">Showing <b>{((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, totalQuotes)}</b> of <b>{totalQuotes}</b> enquiries</div>
+              <div className="admin-pagination-controls">
+                <label className="admin-page-size">Rows
+                  <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
+                    {[10, 20, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
+                  </select>
+                </label>
+                <button type="button" className="admin-page-button" onClick={() => setPage(1)} disabled={page <= 1 || busy} aria-label="First page">«</button>
+                <button type="button" className="admin-page-button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1 || busy}>Previous</button>
+                {Array.from({ length: totalPages }, (_, index) => index + 1)
+                  .filter((number) => number === 1 || number === totalPages || Math.abs(number - page) <= 1)
+                  .map((number, index, visible) => <React.Fragment key={number}>
+                    {index > 0 && number - visible[index - 1] > 1 && <span className="admin-page-ellipsis">…</span>}
+                    <button type="button" className={'admin-page-button ' + (number === page ? 'is-active' : '')} onClick={() => setPage(number)} disabled={busy} aria-current={number === page ? 'page' : undefined}>{number}</button>
+                  </React.Fragment>)}
+                <button type="button" className="admin-page-button" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages || busy}>Next</button>
+                <button type="button" className="admin-page-button" onClick={() => setPage(totalPages)} disabled={page >= totalPages || busy} aria-label="Last page">»</button>
+              </div>
+            </div>}
           </section>
           <section className="admin-detail-panel">
             {selected ? <>
