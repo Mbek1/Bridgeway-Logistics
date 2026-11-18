@@ -1,6 +1,7 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { Router } from 'express';
 import Quote from '../models/Quote.js';
+import { upsertCustomer } from '../utils/customer.js';
 
 const router = Router();
 
@@ -64,6 +65,9 @@ router.post('/', async (req, res, next) => {
 
     const reference = `BW-${Date.now().toString(36).toUpperCase()}-${randomBytes(2).toString('hex').toUpperCase()}`;
     const quote = await Quote.create({ ...payload, reference });
+    const customer = await upsertCustomer({ fullName: quote.fullName, email: quote.email, phone: quote.phone, quoteId: quote._id });
+    quote.customer = customer._id;
+    await quote.save();
 
     return res.status(201).json({
       message: 'Your quote request has been received.',
