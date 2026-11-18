@@ -153,6 +153,7 @@ function PublicSite() {
             <a href="#services" onClick={closeMenu}>Services</a>
             <a href="#coverage" onClick={closeMenu}>Our coverage</a>
             <a href="#contact" onClick={closeMenu}>Contact</a>
+            <a href="#/track" onClick={closeMenu}>Track shipment</a>
             <a className="nav-quote" href="#quote" onClick={closeMenu}>Request a quote <ArrowUpRight size={16} /></a>
           </nav>
         </div>
@@ -354,7 +355,49 @@ function PublicQuotationPage({ token }) {
   </article></main>;
 }
 
+
+function PublicShipmentTrackingPage({ initialTracking = '' }) {
+  const [trackingNumber, setTrackingNumber] = useState(initialTracking);
+  const [shipment, setShipment] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function lookup(event) {
+    event?.preventDefault(); setLoading(true); setError(''); setShipment(null);
+    const value = trackingNumber.trim().toUpperCase();
+    if (!value) { setError('Enter your shipment tracking number.'); setLoading(false); return; }
+    try {
+      const response = await fetch(API_BASE + '/shipments/track/' + encodeURIComponent(value));
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || 'Unable to find this shipment.');
+      setShipment(data.shipment);
+      window.history.replaceState(null, '', '/#/track/' + encodeURIComponent(value));
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  }
+
+  useEffect(() => { if (initialTracking) lookup(); }, [initialTracking]);
+
+  return <main className="public-quotation-page"><article className="public-quotation-card public-tracking-card">
+    <header><div><strong>BRIDGEWAY LOGISTICS</strong><span>SHIPMENT TRACKING</span></div><a href="/#home">Back to website</a></header>
+    <p className="admin-eyebrow">TRACK YOUR DELIVERY</p><h1>Where is your shipment?</h1>
+    <p className="public-quotation-intro">Enter the tracking reference provided by Bridgeway Logistics to view the latest recorded shipment progress.</p>
+    <form className="public-tracking-form" onSubmit={lookup}><label>Tracking number<input value={trackingNumber} onChange={(e)=>setTrackingNumber(e.target.value)} placeholder="e.g. BW-M..." required /></label><button className="admin-primary-button" disabled={loading}>{loading?'Searching…':'Track shipment'}</button></form>
+    {error && <div className="admin-alert admin-alert-error">{error}</div>}
+    {shipment && <section className="public-tracking-result">
+      <div className="public-tracking-status"><small>CURRENT STATUS</small><strong>{shipment.status.replaceAll('_',' ')}</strong><span>{shipment.trackingNumber}</span></div>
+      <div className="public-quotation-meta"><div><small>Customer</small><b>{shipment.customerName}</b></div><div><small>Service</small><b>{shipment.service||'Logistics service'}</b></div><div><small>Collection</small><b>{shipment.origin}</b></div><div><small>Destination</small><b>{shipment.destination}</b></div><div><small>Current location</small><b>{shipment.currentLocation||'Not yet updated'}</b></div><div><small>Estimated delivery</small><b>{shipment.estimatedDelivery?new Date(shipment.estimatedDelivery).toLocaleDateString('en-ZM'):'To be confirmed'}</b></div></div>
+      <h2>Shipment progress</h2>
+      <div className="public-tracking-timeline">{[...(shipment.updates||[])].reverse().map((item,index)=><article key={index}><span/><div><b>{item.status.replaceAll('_',' ')}</b><small>{new Date(item.createdAt).toLocaleString('en-ZM')}{item.location?' · '+item.location:''}</small>{item.note&&<p>{item.note}</p>}</div></article>)}</div>
+      {shipment.status==='delivered'&&<p className="admin-alert admin-alert-success">This shipment has been marked as delivered.</p>}
+    </section>}
+    <footer>Tracking information reflects updates recorded by Bridgeway Logistics. For assistance, please contact our team.</footer>
+  </article></main>;
+}
+
 function App() {
+  const trackingMatch = window.location.hash.match(/^#\/track(?:\/([^/]+))?$/);
+  if (trackingMatch) return <PublicShipmentTrackingPage initialTracking={trackingMatch[1] ? decodeURIComponent(trackingMatch[1]) : ''} />;
   const quotationMatch = window.location.hash.match(/^#\/quotation\/([a-f0-9]{64})$/);
   if (quotationMatch) return <PublicQuotationPage token={quotationMatch[1]} />;
   return window.location.hash.startsWith('#/admin') ? <AdminDashboard /> : <PublicSite />;
