@@ -277,7 +277,7 @@ router.patch('/quotes/:id/quotation', requireAuth, requireRoles('admin', 'manage
     if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ message: 'Enter a quotation amount greater than zero.' });
     if (!description || description.length > 3000) return res.status(400).json({ message: 'Add a description of the services covered (up to 3,000 characters).' });
     if (!validUntil || Number.isNaN(validUntil.getTime())) return res.status(400).json({ message: 'Choose a valid quotation expiry date.' });
-    if (validUntil < new Date(new Date().toDateString())) return res.status(400).json({ message: 'The validity date cannot be in the past.' });
+    if (['draft', 'issued'].includes(status) && validUntil < new Date(new Date().toDateString())) return res.status(400).json({ message: 'The validity date cannot be in the past.' });
     if (terms.length > 3000) return res.status(400).json({ message: 'Terms must be 3,000 characters or fewer.' });
     const quote = await Quote.findById(req.params.id).select('+quotation.publicToken');
     if (!quote) return res.status(404).json({ message: 'Quote request not found.' });
