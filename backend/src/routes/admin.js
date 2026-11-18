@@ -1,5 +1,6 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { Router } from 'express';
+import mongoose from 'mongoose';
 import Quote from '../models/Quote.js';
 import Employee from '../models/Employee.js';
 import Shipment from '../models/Shipment.js';
