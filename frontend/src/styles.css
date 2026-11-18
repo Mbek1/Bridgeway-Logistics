@@ -611,3 +611,10 @@ h1 em, h2 em { color: var(--orange); font-style: normal; }
   .admin-report-table{min-width:0}
   .admin-report-table th,.admin-report-table td{font-size:8pt;padding:7px}
 }
+
+
+@media print{
+  .admin-report-page,.admin-report-page *{visibility:visible!important}
+  .admin-report-page{position:absolute;inset:0;width:100%;padding:20px;background:#fff}
+  .admin-report-page .admin-report-filters{display:none!important}
+}
