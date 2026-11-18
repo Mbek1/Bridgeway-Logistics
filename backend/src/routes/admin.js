@@ -135,12 +135,12 @@ router.get('/stats', requireAuth, async (_req, res, next) => {
     const [total, newRequests, pendingQuotations, closedRequests, issuedQuotations] = await Promise.all([
       Quote.countDocuments({}), Quote.countDocuments({ status: 'new' }),
       Quote.countDocuments({ status: { $in: ['new', 'contacted'] } }), Quote.countDocuments({ status: 'closed' }),
-      Quote.countDocuments({ 'quotation.status': 'issued' }),
+      Quote.countDocuments({ 'quotation.status': { $in: ['issued', 'accepted', 'rejected'] } }),
     ]);
     const start = new Date(); start.setMonth(start.getMonth() - 5, 1); start.setHours(0, 0, 0, 0);
     const monthlyReports = await Quote.aggregate([
       { $match: { createdAt: { $gte: start } } },
-      { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$createdAt', timezone: 'Africa/Lusaka' } }, enquiries: { $sum: 1 }, quotationsIssued: { $sum: { $cond: [{ $eq: ['$quotation.status', 'issued'] }, 1, 0] } } } },
+      { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$createdAt', timezone: 'Africa/Lusaka' } }, enquiries: { $sum: 1 }, quotationsIssued: { $sum: { $cond: [{ $in: ['$quotation.status', ['issued', 'accepted', 'rejected']] }, 1, 0] } } } },
       { $sort: { _id: 1 } },
     ]);
     return res.json({ total, newRequests, pendingQuotations, closedRequests, issuedQuotations, quotationIssueRate: total ? Math.round(issuedQuotations / total * 100) : 0, monthlyReports });
@@ -326,7 +326,7 @@ router.get('/customers', requireAuth, requireRoles('admin', 'manager', 'operatio
     const customers = await Customer.find(filter).sort({ lastInteractionAt: -1, fullName: 1 }).limit(500).lean();
     const ids = customers.map((customer) => customer._id);
     const [quoteCounts, shipmentCounts] = await Promise.all([
-      Quote.aggregate([{ $match: { customer: { $in: ids } } }, { $group: { _id: '$customer', enquiries: { $sum: 1 }, quotationsIssued: { $sum: { $cond: [{ $eq: ['$quotation.status', 'issued'] }, 1, 0] } } } }]),
+      Quote.aggregate([{ $match: { customer: { $in: ids } } }, { $group: { _id: '$customer', enquiries: { $sum: 1 }, quotationsIssued: { $sum: { $cond: [{ $in: ['$quotation.status', ['issued', 'accepted', 'rejected']] }, 1, 0] } } } }]),
       Shipment.aggregate([{ $match: { customer: { $in: ids } } }, { $group: { _id: '$customer', shipments: { $sum: 1 } } }]),
     ]);
     const qMap = new Map(quoteCounts.map((item) => [String(item._id), item]));
@@ -345,7 +345,7 @@ router.get('/customers/:id', requireAuth, requireRoles('admin', 'manager', 'oper
       Shipment.find({ customer: customer._id }).sort({ createdAt: -1 }).limit(100).select('trackingNumber service origin destination status estimatedDelivery deliveredAt createdAt').lean(),
       Quote.countDocuments({ customer: customer._id }),
       Shipment.countDocuments({ customer: customer._id }),
-      Quote.countDocuments({ customer: customer._id, 'quotation.status': 'issued' }),
+      Quote.countDocuments({ customer: customer._id, 'quotation.status': { $in: ['issued', 'accepted', 'rejected'] } }),
     ]);
     return res.json({ customer, enquiries, shipments, enquiryCount, shipmentCount, quotationsIssued });
   } catch (error) { return next(error); }
